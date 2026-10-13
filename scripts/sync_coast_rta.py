@@ -42,7 +42,7 @@ def main():
    page=get(TRACKER).decode("utf-8","replace")
    audit["tracker_status"]="retrieved"
    # Compare only recognizable stop IDs in HTML; lack of exposed IDs is not a mismatch.
-   ids=set(re.findall(r"\\((\\d{1,5})\\)",html.unescape(re.sub(r"<[^>]+>"," ",page))))
+   ids=set(re.findall(r"\((\d{1,5})\)",html.unescape(re.sub(r"<[^>]+>"," ",page))))
    gtfs_ids={s["id"] for s in stops}
    audit["tracker_matching_stop_ids"]=sorted(ids & gtfs_ids)
    audit["tracker_missing_stop_ids"]=sorted(ids-gtfs_ids)
