@@ -4,7 +4,8 @@ import csv,io,json,os,re,urllib.request,zipfile,datetime,html
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent.parent
 FEED="https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx"
-TRACKER="https://coastrta.ridesystems.net/routes/78/stops"
+TRACKER="https://coastrta.transloc.com/routes/78/stops"
+VEHICLES="https://coastrta.transloc.com/subscriptions/gtfsrt/vehicles.ashx"
 def get(url):
  req=urllib.request.Request(url,headers={"User-Agent":"BusBuddyStopAudit/1.0 (public GTFS research)"})
  with urllib.request.urlopen(req,timeout=35) as r:return r.read()
@@ -33,6 +34,10 @@ def main():
   ROOT.joinpath("data").mkdir(exist_ok=True)
   ROOT.joinpath("data/coast-rta-stops.json").write_text(json.dumps({"source":FEED,"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"count":len(stops),"stops":stops},ensure_ascii=False,separators=(",",":")))
   audit={"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"gtfs_stop_count":len(stops),"gtfs_routes":len(routes),"tracker_route_15s_url":TRACKER,"tracker_status":"not_checked","tracker_matching_stop_ids":[],"tracker_missing_stop_ids":[]}
+  try:
+   vehicle_data=get(VEHICLES)
+   audit["vehicle_feed"]={"reachable":True,"bytes":len(vehicle_data),"protobuf_likely":bool(vehicle_data and vehicle_data[:1]!=b"<")}
+  except Exception as e:audit["vehicle_feed"]={"reachable":False,"error":str(e)}
   try:
    page=get(TRACKER).decode("utf-8","replace")
    audit["tracker_status"]="retrieved"
