@@ -1,5 +1,5 @@
 {
-  "downloaded_utc": "2026-10-13T13:04:06.976420+00:00",
+  "downloaded_utc": "2026-10-14T10:54:04.776313+00:00",
   "gtfs_stop_count": 525,
   "gtfs_routes": 40,
   "tracker_route_15s_url": "https://coastrta.transloc.com/routes/78/stops",
@@ -8,7 +8,7 @@
   "tracker_missing_stop_ids": [],
   "vehicle_feed": {
     "reachable": true,
-    "bytes": 15159,
+    "bytes": 13,
     "protobuf_likely": true
   }
 }
