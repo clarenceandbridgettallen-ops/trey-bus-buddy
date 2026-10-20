@@ -18,8 +18,18 @@ def main():
   if any(n not in names for n in required):raise RuntimeError("GTFS missing required files")
   def rows(n):return list(csv.DictReader(io.TextIOWrapper(z.open(names[n]),encoding="utf-8-sig")))
   stop_rows=rows("stops.txt");route_rows=rows("routes.txt");trips=rows("trips.txt");times=rows("stop_times.txt")
+  calendars=rows("calendar.txt") if "calendar.txt" in names else []
+  exceptions=rows("calendar_dates.txt") if "calendar_dates.txt" in names else []
   routes={r["route_id"]:r.get("route_short_name","") or r.get("route_long_name","") for r in route_rows}
   trip_routes={t["trip_id"]:routes.get(t["route_id"],t["route_id"]) for t in trips}
+  trip_details={t["trip_id"]:{"route":routes.get(t["route_id"],t["route_id"]),"service":t.get("service_id",""),"headsign":t.get("trip_headsign",""),"direction":t.get("direction_id","")} for t in trips}
+  journey_trips={}
+  for t in times:
+   tid=t.get("trip_id","")
+   if tid in trip_details:
+    journey_trips.setdefault(tid,[]).append({"stop":t.get("stop_id",""),"seq":int(t.get("stop_sequence") or 0),"arr":t.get("arrival_time",""),"dep":t.get("departure_time","")})
+  journey=[{"id":tid,**trip_details[tid],"stops":sorted(rows,key=lambda x:x["seq"])} for tid,rows in journey_trips.items() if len(rows)>=2]
+  ROOT.joinpath("data/coast-rta-journeys.json").write_text(json.dumps({"source":FEED,"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"trips":journey,"calendar":calendars,"exceptions":exceptions},ensure_ascii=False,separators=(",",":")))
   stop_routes={}
   for t in times:
    route=trip_routes.get(t.get("trip_id"))
