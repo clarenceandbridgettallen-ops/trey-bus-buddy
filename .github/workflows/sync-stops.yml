@@ -23,7 +23,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/coast-rta-stops.json data/stop-audit.json
+          git add data/coast-rta-stops.json data/coast-rta-journeys.json data/stop-audit.json
           if ! git diff --cached --quiet; then
             git commit -m "Refresh Coast RTA GTFS stops and tracker audit"
             git push
