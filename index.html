@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bus Buddy · Your trip, one step at a time</title><style>
 :root{font-family:system-ui,Arial,sans-serif;color:#251746;background:#f1edfc}*{box-sizing:border-box}body{margin:0 auto;max-width:560px;padding:12px}header{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}header strong{font-size:23px}header small{font-size:12px;color:#52456d}.screen{display:none;background:#fff;border:2px solid #7052ae;border-radius:24px;min-height:72vh;padding:22px 18px;text-align:center;flex-direction:column;align-items:stretch;justify-content:center;gap:15px}.screen.active{display:flex}h1{font-size:32px;line-height:1.15;margin:0}h2{font-size:29px;margin:0}p{font-size:19px;line-height:1.4;margin:0}.emoji{font-size:55px}button,a.big{display:block;width:100%;border-radius:18px;padding:19px 12px;font-size:21px;font-weight:800;border:2px solid #54318c;color:#291848;background:#fff;text-decoration:none;text-align:center;cursor:pointer;min-height:68px}button.primary,a.primary{background:#5634a4;color:#fff}button:disabled{opacity:.5}input{width:100%;padding:17px;border:2px solid #69528f;border-radius:14px;font-size:20px}label{font-weight:750;font-size:19px;text-align:left}.address,.stop{padding:18px;border:2px solid #9d8bc6;background:#f5f0ff;border-radius:17px;font-size:24px;font-weight:750;overflow-wrap:anywhere}.hint{font-size:16px;color:#514967}.status{font-size:17px;min-height:25px}footer{display:flex;gap:8px;margin:12px 0}footer button{font-size:16px;min-height:55px;padding:12px}#other button{font-size:17px;min-height:52px}.error{color:#a21d37;font-weight:700}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}:focus-visible{outline:4px solid #e6a22c;outline-offset:2px}</style></head><body>
-<header><strong>🚌 Bus Buddy</strong><small>Preview v28</small></header>
+<header><strong>🚌 Bus Buddy</strong><small>Preview v29</small></header>
 <main>
 <section class="screen active" id="welcome"><button class="primary" id="locate">📍 I AM HERE</button><button id="typeStart">⌨️ ENTER LOCATION</button><p id="dataStatus" class="visually-hidden" role="status">Loading stops</p></section>
 <section class="screen" id="fare"><div class="emoji">💵</div><h2>How much will my ride cost?</h2><p>Every time you board a bus, count $1.</p><label for="boardings">How many buses will you board today?</label><input type="number" id="boardings" min="1" max="20" value="2"><label for="payment">How will you pay?</label><select id="payment" style="font-size:21px;padding:16px;border-radius:12px"><option value="tap">Same contactless card or phone</option><option value="cash">Cash</option></select><div class="address" id="fareTotal">$2.00 estimated</div><p class="hint" id="fareNote">With the same contactless payment method, the daily cap is $3.50. Cash is not capped. Eligible riders may qualify for free rides at certain times.</p><button class="primary" id="fareDone">GOT IT ✓</button><a href="https://coastrta.com/how-to-ride/" target="_blank" rel="noopener noreferrer">Official Coast RTA fare rules</a></section><section class="screen" id="manual"><h2>Where are you now?</h2><label for="address">Enter your street, hotel, or city</label><input id="address" autocomplete="street-address" placeholder="Street address, Myrtle Beach, SC"><button class="primary" id="useAddress">FIND THIS ADDRESS</button><p class="status" id="manualStatus" role="status"></p></section>
@@ -35,21 +35,19 @@ $("yesLocation").onclick=()=>{show("chooseGoal");speak("Where are you going? Nea
 $("differentStop").onclick=()=>{const c=$("stopOptions");c.replaceChildren();stops.slice(0,10).forEach((s,i)=>{const b=document.createElement("button");b.textContent=(i+1)+". "+s.name+" · "+s.meters+" meters";b.onclick=()=>presentStop(i);c.append(b)});show("other")};
 $("askDestination").onclick=()=>show("destination");
 function placeLabel(a){return [a.housenumber,a.street,a.city,a.state,a.postcode].filter(Boolean).join(" ")}
-function isNearby(p){const c=p.geometry?.coordinates;if(!c||!Number.isFinite(c[0])||!Number.isFinite(c[1]))return false;return distance(pos,{lat:c[1],lon:c[0]})<=25000}
-function cleanPlaceQuery(q){return q.replace(/\\b(near me|nearby|close to me|around me)\\b/gi,"").replace(/\\s+/g," ").trim()}
+function isNearby(p){const c=p.geometry?.coordinates;return !!(c&&Number.isFinite(c[0])&&Number.isFinite(c[1])&&c[1]>=32.9&&c[1]<=34.6&&c[0]>=-80.4&&c[0]<=-78.3)}
+function cleanPlaceQuery(q){return q.replace(/\b(near me|nearby|close to me|around me)\b/gi,"").replace(/\s+/g," ").trim()}
 $("findTrip").onclick=async()=>{
 const typed=$("destinationInput").value.trim();if(!typed||!pos)return;
 const q=cleanPlaceQuery(typed);if(!q){$("tripStatus").textContent="Please enter a business name or address.";return}
-$("tripStatus").textContent="Searching within 25 kilometers of your confirmed location…";$("findTrip").disabled=true;
+$("tripStatus").textContent="Searching the Coast RTA region, including Georgetown and Conway…";$("findTrip").disabled=true;
 try{
-const deltaLat=25/111,deltaLon=25/(111*Math.max(.2,Math.cos(pos.lat*Math.PI/180)));
-const bbox=[pos.lon-deltaLon,pos.lat-deltaLat,pos.lon+deltaLon,pos.lat+deltaLat].join(",");
-const url="https://photon.komoot.io/api/?limit=20&lat="+encodeURIComponent(pos.lat)+"&lon="+encodeURIComponent(pos.lon)+"&bbox="+encodeURIComponent(bbox)+"&q="+encodeURIComponent(q);
+const url="https://photon.komoot.io/api/?limit=40&lat="+encodeURIComponent(pos.lat)+"&lon="+encodeURIComponent(pos.lon)+"&q="+encodeURIComponent(q);
 const r=await fetch(url);if(!r.ok)throw Error("Place search is temporarily unavailable.");
 const d=await r.json();
 const matches=(d.features||[]).filter(isNearby).map(p=>{const a=p.properties||{};return {lat:p.geometry.coordinates[1],lon:p.geometry.coordinates[0],name:a.name||q,address:placeLabel(a),meters:distance(pos,{lat:p.geometry.coordinates[1],lon:p.geometry.coordinates[0]})}}).filter(x=>x.name&&x.address);
 matches.sort((x,y)=>x.meters-y.meters);
-if(!matches.length)throw Error("No matching place found within 25 km. Try the business name and city, or enter the full street address. No distant result will be selected automatically.");
+if(!matches.length)throw Error("No matching destination found in the regional search. Try a street address and city.");
 destination=matches[0];
 $("destinationName").textContent=destination.name;
 $("destinationAddress").textContent=destination.address+" · About "+(destination.meters/1000).toFixed(1)+" km from your confirmed location.";
