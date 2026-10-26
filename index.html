@@ -15,19 +15,19 @@
 <p class="hint" style="text-align:center">Public preview. Never rely on this app alone for safe boarding, live arrivals, or a stop alert. Confirm with Coast RTA: <a href="tel:+18434880865">843-488-0865</a>. <a href="trey-original-journey.html">Original trip guide</a>.</p>
 <script>
 "use strict";
-const $=id=>document.getElementById(id);let screen="welcome",history=[],pos=null,stops=[],selected=null,official=null,source="",destination=null,journeys=null,steps=[],stepIndex=0;const base="https://coastrta.transloc.com/";
+const $=id=>document.getElementById(id);let screen="welcome",history=[],pos=null,stops=[],selected=null,official=null,source="",destination=null,journeys=null,steps=[],stepIndex=0;const base="https://coastrta.transloc.com/";let navigationVersion=0;
 function focusScreen(id){const target=document.querySelector("#"+id+" h1,#"+id+" h2")||document.querySelector("#"+id+" button");if(!target)return;if(/^H[12]$/.test(target.tagName))target.setAttribute("tabindex","-1");target.focus()}
 function stopSpeech(){if("speechSynthesis" in window)window.speechSynthesis.cancel()}
-function show(id){stopSpeech();if(screen!==id)history.push(screen);document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id===id));screen=id;window.scrollTo(0,0);focusScreen(id)}
-function back(){stopSpeech();const id=history.pop()||"welcome";document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id===id));screen=id;window.scrollTo(0,0);focusScreen(id)}
-function reset(){stopSpeech();history=[];pos=null;selected=null;destination=null;stops=[];steps=[];stepIndex=0;document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id==="welcome"));screen="welcome";window.scrollTo(0,0);focusScreen("welcome")}
+function show(id){navigationVersion++;stopSpeech();if(screen!==id)history.push(screen);document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id===id));screen=id;window.scrollTo(0,0);focusScreen(id)}
+function back(){navigationVersion++;stopSpeech();const id=history.pop()||"welcome";document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id===id));screen=id;window.scrollTo(0,0);focusScreen(id)}
+function reset(){navigationVersion++;stopSpeech();history=[];pos=null;selected=null;destination=null;stops=[];steps=[];stepIndex=0;document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id==="welcome"));screen="welcome";window.scrollTo(0,0);focusScreen("welcome")}
 function rad(n){return n*Math.PI/180}function distance(a,b){const d=rad(b.lat-a.lat),e=rad(b.lon-a.lon),q=Math.sin(d/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(e/2)**2;return Math.round(12742000*Math.asin(Math.sqrt(q)))}
 function speak(t){if("speechSynthesis" in window){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(t))}}
 async function loadStops(){try{const r=await fetch("./data/coast-rta-stops.json",{cache:"no-store"});if(!r.ok)throw Error("Unavailable");const d=await r.json();if(!Array.isArray(d.stops)||d.stops.length<50)throw Error("Incomplete");official=d;source="Official Coast RTA GTFS";$("dataStatus").textContent="✓ "+d.stops.length+" official mapped stops loaded (downloaded "+(d.downloaded_utc||"date unknown")+").";if(destination&&screen==="itinerary"&&journeys)renderTrip()}catch(e){official=null;source="";$("dataStatus").textContent="Official Coast RTA stop data unavailable. Stop selection is paused until the data loads. Refresh to retry.";}}loadStops();fetch("./data/coast-rta-journeys.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(!Array.isArray(d?.trips))throw Error("Incomplete journey data");journeys=d;if(destination&&screen==="itinerary")renderTrip()}).catch(()=>{$("dataStatus").textContent+=" Journey schedules could not load. Refresh to retry."});
 function fail(t){$("problemText").textContent=t;show("problem");speak("Something went wrong. "+t)}
 async function reverse(lat,lon){try{const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat="+lat+"&lon="+lon);if(!r.ok)throw Error();const d=await r.json();const a=d.address||{};return [a.house_number,a.road].filter(Boolean).join(" ") + (a.city||a.town||a.village||a.suburb?", "+(a.city||a.town||a.village||a.suburb):"")+", South Carolina"}catch(e){return "Near "+lat.toFixed(5)+", "+lon.toFixed(5)+" (street address unavailable)"}}
 async function gotPosition(lat,lon,accuracy,matchedLabel){pos={lat,lon};const requestPos=pos;$("foundAddress").textContent="Finding street address…";$("accuracy").textContent=accuracy?"GPS accuracy: about "+Math.round(accuracy)+" meters. Please confirm this looks right.":"Address is an approximate map match, not a verified entrance or walking route. Check the street and house number.";show("found");const a=matchedLabel||await reverse(lat,lon);if(screen!=="found"||pos!==requestPos)return;$("foundAddress").textContent=a;speak("I found a possible location. "+a+". Check the displayed address. Is this your location?")}
-$("locate").onclick=()=>{if(!navigator.geolocation){fail("This phone does not support location. Enter an address instead.");return}$("locate").disabled=true;navigator.geolocation.getCurrentPosition(p=>{ $("locate").disabled=false;gotPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy)},e=>{$("locate").disabled=false;fail("Could not get location: "+e.message)},{enableHighAccuracy:true,maximumAge:0,timeout:25000})};
+$("locate").onclick=()=>{const requestVersion=navigationVersion;if(!navigator.geolocation){fail("This phone does not support location. Enter an address instead.");return}$("locate").disabled=true;navigator.geolocation.getCurrentPosition(p=>{ $("locate").disabled=false;if(navigationVersion!==requestVersion||screen!=="welcome")return;gotPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy)},e=>{$("locate").disabled=false;if(navigationVersion!==requestVersion||screen!=="welcome")return;fail("Could not get location: "+e.message)},{enableHighAccuracy:true,maximumAge:0,timeout:25000})};
 function updateFare(){const n=Math.max(1,Math.min(20,Number($("boardings").value)||1));const total=$("payment").value==="tap"?Math.min(n,3.5):n;$("fareTotal").textContent="$"+total.toFixed(2)+" estimated";}$("boardings").oninput=updateFare;$("payment").onchange=updateFare;$("fareDone").onclick=back;$("typeStart").onclick=()=>show("manual");$("enterInstead").onclick=()=>show("manual");$("changeLocation").onclick=()=>show("manual");$("retry").onclick=()=>reset();
 // Reject geocoder guesses that mismatch the typed address or lie outside service geography.
 function pickStartCandidate(query,candidates){
@@ -68,15 +68,16 @@ async function lookupTypedStart(q){
  return null;
 }
 $("useAddress").onclick=async()=>{
- const q=$("address").value.trim();if(!q){$("manualStatus").textContent="Enter a starting address or place name.";return}
+ const q=$("address").value.trim();if(!q){$("manualStatus").textContent="Enter a starting address or place name.";return}const requestVersion=navigationVersion;
  $("manualStatus").textContent="Checking address and house number in the Coast RTA region…";
  $("useAddress").disabled=true;
  try{
   const found=await lookupTypedStart(q);
+  if(navigationVersion!==requestVersion||screen!=="manual")return;
   if(!found)throw Error("No matching start address in the Coast RTA region. Check the house number, street and city; do not use a different suggested address.");
   await gotPosition(found.lat,found.lon,null,found.address||found.name||q);
   $("manualStatus").textContent="";
- }catch(e){$("manualStatus").textContent=e.message}
+ }catch(e){if(navigationVersion===requestVersion&&screen==="manual")$("manualStatus").textContent=e.message}
  finally{$("useAddress").disabled=false}
 };
 const MAX_NEARBY_STRAIGHT_LINE_METERS=1800;
@@ -119,7 +120,7 @@ function placeMatchScore(query,place){
 
 $("findTrip").onclick=async()=>{
 const typed=$("destinationInput").value.trim();if(!typed||!pos)return;
-const q=cleanPlaceQuery(typed);if(!q){$("tripStatus").textContent="Please enter a business name or address.";return}
+const q=cleanPlaceQuery(typed);if(!q){$("tripStatus").textContent="Please enter a business name or address.";return}const requestVersion=navigationVersion;
 $("tripStatus").textContent="Searching the Coast RTA region, including Georgetown and Conway…";$("findTrip").disabled=true;
 try{
 const matches=[];const add=(lat,lon,name,address)=>{if(!Number.isFinite(lat)||!Number.isFinite(lon))return;const p={geometry:{coordinates:[lon,lat]}};if(!isNearby(p))return;matches.push({lat,lon,name:name||address||"",address:address||name||"",meters:distance(pos,{lat,lon})})};
@@ -127,6 +128,7 @@ const terms=[q,q+" South Carolina",q+" Georgetown SC",q+" Myrtle Beach SC"];for(
 // A geographically nearby Photon suggestion may still be an unrelated place. Try the second free geocoder when none actually matches the typed destination.
 if(!matches.some(x=>placeMatchScore(q,x)>=75)){for(const term of [q+", South Carolina",q+", Georgetown, South Carolina"]){try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(term));if(!r.ok)continue;const data=await r.json();for(const p of data)add(Number(p.lat),Number(p.lon),p.name||"",p.display_name);if(matches.some(x=>placeMatchScore(q,x)>=75))break}catch(e){}}}
 const known=[{name:"Belle Isle Bistro",address:"1228 Belle Isle Road, Georgetown, SC 29440",aliases:["bell isle bistro","belle isle bistro"]}];const simple=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\\s+/g," ").trim();for(const entry of known){if(entry.aliases.some(n=>simple(q).includes(n))){try{const url="https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q="+encodeURIComponent(entry.address);const r=await fetch(url);if(r.ok){for(const p of await r.json()){const lat=Number(p.lat),lon=Number(p.lon);if(Number.isFinite(lat)&&Number.isFinite(lon))matches.push({lat,lon,name:entry.name,address:entry.address,meters:distance(pos,{lat,lon})})}}}catch(e){}}}
+if(navigationVersion!==requestVersion||screen!=="destination")return;
 const score=x=>placeMatchScore(q,x);const eligible=matches.filter(x=>score(x)>=75).sort((x,y)=>score(y)-score(x)||x.meters-y.meters);const unique=[];for(const x of eligible){if(!unique.some(y=>distance(x,y)<25&&normalizePlace(x.address)===normalizePlace(y.address)&&normalizePlace(x.name)===normalizePlace(y.name)))unique.push(x)}matches.length=0;matches.push(...unique);
 if(!matches.length)throw Error("We couldn't find that business name in the available place directories. Check spelling or try the street address.");
 const list=$("placeResults");list.replaceChildren();matches.slice(0,12).forEach(place=>{const button=document.createElement("button");button.style.cssText="text-align:left;margin:8px 0;font-size:18px";const strong=document.createElement("strong");strong.textContent=place.name;const address=document.createElement("div");address.style.cssText="font-size:15px;font-weight:400;margin-top:7px";address.textContent=place.address;button.append(strong,address);button.onclick=()=>{destination=place;$("destinationName").textContent=place.name;$("destinationAddress").textContent=place.address+" · About "+(place.meters/1000).toFixed(1)+" km from your confirmed location.";show("confirmDestination");speak("Is this the right place? "+place.name+" "+place.address)};list.append(button)});$("tripStatus").textContent="";show("searchResults");return;
@@ -135,7 +137,7 @@ $("destinationAddress").textContent=destination.address+" · About "+(destinatio
 $("tripStatus").textContent="";
 show("confirmDestination");
 speak("Is this the right place? "+destination.name+" "+destination.address);
-}catch(e){$("tripStatus").textContent=e.message}
+}catch(e){if(navigationVersion===requestVersion&&screen==="destination")$("tripStatus").textContent=e.message}
 finally{$("findTrip").disabled=false}
 };
 $("noDestination").onclick=()=>show("searchResults");$("resultsBack").onclick=()=>show("destination");
