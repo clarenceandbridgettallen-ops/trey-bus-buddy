@@ -24,10 +24,59 @@ function speak(t){if("speechSynthesis" in window){speechSynthesis.cancel();speec
 async function loadStops(){try{const r=await fetch("./data/coast-rta-stops.json",{cache:"no-store"});if(!r.ok)throw Error("Unavailable");const d=await r.json();if(!Array.isArray(d.stops)||d.stops.length<50)throw Error("Incomplete");official=d;source="Official Coast RTA GTFS";$("dataStatus").textContent="✓ "+d.stops.length+" official mapped stops loaded (downloaded "+(d.downloaded_utc||"date unknown")+").";if(destination&&screen==="itinerary"&&journeys)renderTrip()}catch(e){official=null;source="";$("dataStatus").textContent="Official Coast RTA stop data unavailable. Stop selection is paused until the data loads. Refresh to retry.";}}loadStops();fetch("./data/coast-rta-journeys.json",{cache:"no-store"}).then(r=>r.ok?r.json():null).then(d=>{if(!Array.isArray(d?.trips))throw Error("Incomplete journey data");journeys=d;if(destination&&screen==="itinerary")renderTrip()}).catch(()=>{$("dataStatus").textContent+=" Journey schedules could not load. Refresh to retry."});
 function fail(t){$("problemText").textContent=t;show("problem");speak("Something went wrong. "+t)}
 async function reverse(lat,lon){try{const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat="+lat+"&lon="+lon);if(!r.ok)throw Error();const d=await r.json();const a=d.address||{};return [a.house_number,a.road].filter(Boolean).join(" ") + (a.city||a.town||a.village||a.suburb?", "+(a.city||a.town||a.village||a.suburb):"")+", South Carolina"}catch(e){return "Near "+lat.toFixed(5)+", "+lon.toFixed(5)+" (street address unavailable)"}}
-async function gotPosition(lat,lon,accuracy){pos={lat,lon};$("foundAddress").textContent="Finding street address…";$("accuracy").textContent=accuracy?"GPS accuracy: about "+Math.round(accuracy)+" meters. Please confirm this looks right.":"Address is an approximate map match. Please confirm.";show("found");const a=await reverse(lat,lon);$("foundAddress").textContent=a;speak("I found you. "+a+". Is this your location?")}
+async function gotPosition(lat,lon,accuracy,matchedLabel){pos={lat,lon};$("foundAddress").textContent="Finding street address…";$("accuracy").textContent=accuracy?"GPS accuracy: about "+Math.round(accuracy)+" meters. Please confirm this looks right.":"Address is an approximate map match, not a verified entrance or walking route. Check the street and house number.";show("found");const a=matchedLabel||await reverse(lat,lon);$("foundAddress").textContent=a;speak("I found a possible location. "+a+". Check the displayed address. Is this your location?")}
 $("locate").onclick=()=>{if(!navigator.geolocation){fail("This phone does not support location. Enter an address instead.");return}$("locate").disabled=true;navigator.geolocation.getCurrentPosition(p=>{ $("locate").disabled=false;gotPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy)},e=>{$("locate").disabled=false;fail("Could not get location: "+e.message)},{enableHighAccuracy:true,maximumAge:0,timeout:25000})};
 function updateFare(){const n=Math.max(1,Math.min(20,Number($("boardings").value)||1));const total=$("payment").value==="tap"?Math.min(n,3.5):n;$("fareTotal").textContent="$"+total.toFixed(2)+" estimated";}$("boardings").oninput=updateFare;$("payment").onchange=updateFare;$("fareDone").onclick=back;$("typeStart").onclick=()=>show("manual");$("enterInstead").onclick=()=>show("manual");$("changeLocation").onclick=()=>show("manual");$("retry").onclick=()=>reset();
-$("useAddress").onclick=async()=>{const q=$("address").value.trim();if(!q)return;$("manualStatus").textContent="Searching for address…";try{const r=await fetch("https://photon.komoot.io/api/?limit=1&q="+encodeURIComponent(q+", South Carolina"));if(!r.ok)throw Error("Search unavailable");const d=await r.json();const p=d.features?.[0];if(!p)throw Error("Address not found. Add city and ZIP.");await gotPosition(p.geometry.coordinates[1],p.geometry.coordinates[0],null);const a=p.properties||{};$("foundAddress").textContent=[a.name,a.street,a.city,a.state].filter(Boolean).join(", ")||q}catch(e){$("manualStatus").textContent=e.message}};
+// Reject geocoder guesses that mismatch the typed address or lie outside service geography.
+function pickStartCandidate(query,candidates){
+ const options=[];
+ for(const item of candidates){
+  const lat=Number(item.lat),lon=Number(item.lon);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)||!isNearby({geometry:{coordinates:[lon,lat]}}))continue;
+  const name=item.name||"",address=item.address||"";
+  const score=placeMatchScore(query,{name,address});
+  if(score>=75)options.push({lat,lon,name,address:address||name,score});
+ }
+ return options.sort((a,b)=>b.score-a.score)[0]||null;
+}
+async function lookupTypedStart(q){
+ const photon=[];
+ try{
+  const r=await fetch("https://photon.komoot.io/api/?limit=25&q="+encodeURIComponent(q+", South Carolina"));
+  if(r.ok){
+   const d=await r.json();
+   for(const p of d.features||[]){
+    const a=p.properties||{},c=p.geometry?.coordinates;
+    if(!c||c.length<2)continue;
+    const address=[a.housenumber,a.street,a.city,a.state,a.postcode].filter(Boolean).join(" ");
+    photon.push({lat:c[1],lon:c[0],name:a.name||"",address:address||a.name||""});
+   }
+  }
+ }catch(e){}
+ const first=pickStartCandidate(q,photon);
+ if(first)return first;
+ // Geocoding fallback only; boarding stops still come from official GTFS.
+ try{
+  const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(q+", South Carolina"));
+  if(r.ok){
+   const results=await r.json();
+   return pickStartCandidate(q,results.map(p=>({lat:p.lat,lon:p.lon,name:p.name||"",address:p.display_name||""})));
+  }
+ }catch(e){}
+ return null;
+}
+$("useAddress").onclick=async()=>{
+ const q=$("address").value.trim();if(!q){$("manualStatus").textContent="Enter a starting address or place name.";return}
+ $("manualStatus").textContent="Checking address and house number in the Coast RTA region…";
+ $("useAddress").disabled=true;
+ try{
+  const found=await lookupTypedStart(q);
+  if(!found)throw Error("No matching start address in the Coast RTA region. Check the house number, street and city; do not use a different suggested address.");
+  await gotPosition(found.lat,found.lon,null,found.address||found.name||q);
+  $("manualStatus").textContent="";
+ }catch(e){$("manualStatus").textContent=e.message}
+ finally{$("useAddress").disabled=false}
+};
 const MAX_NEARBY_STRAIGHT_LINE_METERS=1800;
 async function findNearest(){
  if(!pos)return fail("Please locate yourself first.");
