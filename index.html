@@ -37,6 +37,25 @@ $("askDestination").onclick=()=>show("destination");
 function placeLabel(a){return [a.housenumber,a.street,a.city,a.state,a.postcode].filter(Boolean).join(" ")}
 function isNearby(p){const c=p.geometry?.coordinates;return !!(c&&Number.isFinite(c[0])&&Number.isFinite(c[1])&&c[1]>=32.9&&c[1]<=34.6&&c[0]>=-80.4&&c[0]<=-78.3)}
 function cleanPlaceQuery(q){return q.replace(/\b(near me|nearby|close to me|around me)\b/gi,"").replace(/\s+/g," ").trim()}
+
+function normalizePlace(value){
+ const aliases={st:"street",rd:"road",ave:"avenue",blvd:"boulevard",pkwy:"parkway",hwy:"highway",dr:"drive",ln:"lane",ctr:"center"};
+ return String(value||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean).map(x=>aliases[x]||x).join(" ");
+}
+function placeMatchScore(query,place){
+ const wanted=normalizePlace(query).replace(/\b(south carolina|sc)\b/g,"").replace(/\s+/g," ").trim();
+ if(!wanted)return 0;
+ const name=normalizePlace(place.name),address=normalizePlace(place.address);
+ const combined=(name+" "+address).trim();
+ const tokens=wanted.split(" ").filter(x=>x.length>2||/^\d+$/.test(x));
+ if(!tokens.length)return 0;
+ const available=new Set(combined.split(" "));
+ if(tokens.some(x=>/^\d+$/.test(x)&&!available.has(x)))return 0;
+ if(name===wanted||address===wanted||address.includes(wanted))return 100;
+ if(name.includes(wanted))return 95;
+ return Math.round(100*tokens.filter(x=>available.has(x)).length/tokens.length);
+}
+
 $("findTrip").onclick=async()=>{
 const typed=$("destinationInput").value.trim();if(!typed||!pos)return;
 const q=cleanPlaceQuery(typed);if(!q){$("tripStatus").textContent="Please enter a business name or address.";return}
@@ -46,7 +65,7 @@ const matches=[];const add=(lat,lon,name,address)=>{if(!Number.isFinite(lat)||!N
 const terms=[q,q+" South Carolina",q+" Georgetown SC",q+" Myrtle Beach SC"];for(const term of terms){try{const r=await fetch("https://photon.komoot.io/api/?limit=40&lat="+encodeURIComponent(pos.lat)+"&lon="+encodeURIComponent(pos.lon)+"&q="+encodeURIComponent(term));if(!r.ok)continue;const d=await r.json();for(const p of d.features||[]){const a=p.properties||{};add(p.geometry.coordinates[1],p.geometry.coordinates[0],a.name||q,placeLabel(a))}}catch(e){}}
 if(!matches.length){for(const term of [q+", South Carolina",q+", Georgetown, South Carolina"]){try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(term));if(!r.ok)continue;const data=await r.json();for(const p of data)add(Number(p.lat),Number(p.lon),p.name||q,p.display_name);if(matches.length)break}catch(e){}}}
 const known=[{name:"Belle Isle Bistro",address:"1228 Belle Isle Road, Georgetown, SC 29440",aliases:["bell isle bistro","belle isle bistro"]}];const simple=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\\s+/g," ").trim();for(const entry of known){if(entry.aliases.some(n=>simple(q).includes(n))){try{const url="https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q="+encodeURIComponent(entry.address);const r=await fetch(url);if(r.ok){for(const p of await r.json()){const lat=Number(p.lat),lon=Number(p.lon);if(Number.isFinite(lat)&&Number.isFinite(lon))matches.push({lat,lon,name:entry.name,address:entry.address,meters:distance(pos,{lat,lon})})}}}catch(e){}}}
-const normalize=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();const wanted=normalize(q).replace(/\b(south carolina|georgetown|myrtle beach|sc)\b/g,"").trim();const tokens=wanted.split(" ").filter(x=>x.length>2);const score=x=>{const n=normalize(x.name);if(n===wanted)return 100;if(n.includes(wanted))return 90;if(wanted.includes(n)&&n.length>4)return 75;return tokens.length?Math.round(100*tokens.filter(t=>n.split(" ").includes(t)).length/tokens.length):0};const eligible=matches.filter(x=>score(x)>=75);matches.length=0;matches.push(...eligible);matches.sort((x,y)=>score(y)-score(x)||x.meters-y.meters);
+const score=x=>placeMatchScore(q,x);const eligible=matches.filter(x=>score(x)>=75);matches.length=0;matches.push(...eligible);matches.sort((x,y)=>score(y)-score(x)||x.meters-y.meters);
 if(!matches.length)throw Error("We couldn't find that business name in the available place directories. Check spelling or try the street address.");
 const list=$("placeResults");list.replaceChildren();matches.slice(0,12).forEach(place=>{const button=document.createElement("button");button.style.cssText="text-align:left;margin:8px 0;font-size:18px";const strong=document.createElement("strong");strong.textContent=place.name;const address=document.createElement("div");address.style.cssText="font-size:15px;font-weight:400;margin-top:7px";address.textContent=place.address;button.append(strong,address);button.onclick=()=>{destination=place;$("destinationName").textContent=place.name;$("destinationAddress").textContent=place.address+" · About "+(place.meters/1000).toFixed(1)+" km from your confirmed location.";show("confirmDestination");speak("Is this the right place? "+place.name+" "+place.address)};list.append(button)});show("searchResults");return;
 $("destinationName").textContent=destination.name;
