@@ -54,11 +54,11 @@ def main():
    # Only compare canonical GTFS-style IDs. Parenthesized numbers are not
    # necessarily GTFS stop IDs and cannot safely be called missing stops.
    decoded=html.unescape(page)
-   ids={v.upper() for v in re.findall(r"\\bTL-\\d+\\b",decoded,flags=re.I)}
+   ids={v.upper() for v in re.findall(r"\bTL-\d+\b",decoded,flags=re.I)}
    gtfs_ids={str(s["id"]).upper() for s in stops}
    audit["tracker_matching_stop_ids"]=sorted(ids & gtfs_ids)
    audit["tracker_missing_stop_ids"]=sorted(ids-gtfs_ids)
-   audit["tracker_unverified_numeric_labels_count"]=len(set(re.findall(r"\\((\\d{1,5})\\)",html.unescape(re.sub(r"<[^>]+>"," ",page)))))
+   audit["tracker_unverified_numeric_labels_count"]=len(set(re.findall(r"\((\d{1,5})\)",html.unescape(re.sub(r"<[^>]+>"," ",page)))))
    audit["tracker_status"]="partial_canonical_id_comparison" if ids else "page_retrieved_no_canonical_ids_extracted"
   except Exception as e:audit["tracker_status"]="unavailable: "+str(e)
   ROOT.joinpath("data/stop-audit.json").write_text(json.dumps(audit,indent=2))
