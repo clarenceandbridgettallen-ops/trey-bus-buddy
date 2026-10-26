@@ -49,7 +49,7 @@ async function lookupTypedStart(q){
     const a=p.properties||{},c=p.geometry?.coordinates;
     if(!c||c.length<2)continue;
     const address=[a.housenumber,a.street,a.city,a.state,a.postcode].filter(Boolean).join(" ");
-    photon.push({lat:c[1],lon:c[0],name:a.name||"",address:address||a.name||""});
+    photon.push({lat:c[1],lon:c[0],name:a.name||"",address:[a.name,address].filter(Boolean).join(", ")});
    }
   }
  }catch(e){}
