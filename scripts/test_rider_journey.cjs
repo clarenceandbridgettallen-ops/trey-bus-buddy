@@ -27,19 +27,19 @@ class El{
  setAttribute(){}
  focus(){}
 }
-function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null){
+function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,fault=null){
  const ids=[...html.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map(x=>x[1]);
  const els=new Map(ids.map(x=>[x,new El(x)]));
  const get=id=>{if(!els.has(id))els.set(id,new El(id));return els.get(id)};
  const document={getElementById:get,querySelectorAll:()=>ids.map(get),querySelector:()=>new El("heading","H2"),createElement:t=>new El("",t.toUpperCase()),createTextNode:t=>({textContent:t})};
  const spoken=[],speechSynthesis={cancel(){},speak:u=>spoken.push(u.text)};
  const window={scrollTo(){},speechSynthesis};
- const navigator={geolocation:{getCurrentPosition:ok=>ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
+ const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[instant]))}static now(){return new Date(instant).getTime()}}
  const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:"Georgetown",state:"South Carolina"}});
  const fetch=async url=>{
   const u=String(url);
-  if(u.includes("coast-rta-stops.json"))return {ok:true,json:async()=>stops};
+  if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
   if(u.includes("coast-rta-journeys.json"))return {ok:true,json:async()=>fixtureJourneys||journeys};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
@@ -111,6 +111,18 @@ async function main(){
  assert.equal(holiday.get("guideStart").disabled,true);
  assert.match(holiday.get("planStatus").textContent,/No Coast RTA fixed-route service is scheduled today/);
  console.log("PASS: Thanksgiving holiday does not generate an itinerary");
+ const denied=boot("2026-10-27T11:00:00Z",null,null,"gps-denied");await denied.settle();await denied.click("locate");await denied.settle();
+ assert.equal(denied.state().screen,"problem");
+ assert.match(denied.get("problemText").textContent,/Permission denied/);
+ assert.equal(denied.get("locate").disabled,false);
+ await denied.click("enterInstead");assert.equal(denied.state().screen,"manual");
+ console.log("PASS: GPS permission denied offers typed location fallback");
+ const offline=boot("2026-10-27T11:00:00Z",null,null,"stops-offline");await offline.settle();
+ assert.equal(offline.state().official,null);
+ await offline.click("locate");await offline.settle();await offline.click("yesLocation");await offline.click("goNearest");
+ assert.equal(offline.state().screen,"problem");
+ assert.match(offline.get("problemText").textContent,/Official Coast RTA stop data is unavailable/);
+ console.log("PASS: unavailable official stop data blocks unverified nearest-stop recommendation");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
