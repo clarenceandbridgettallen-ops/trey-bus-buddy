@@ -74,7 +74,7 @@ async function main(){
  await a.click("fareDone");await a.click("guideStart");
  assert.equal(a.state().screen,"guide");
  assert.ok(a.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
- await a.click("nextInstruction");await a.click("home");
+ await a.click("nextInstruction");assert.match(a.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));await a.click("home");
  assert.equal(a.state().screen,"welcome");assert.equal(a.state().destination,null);
  console.log("PASS: GPS → place search → Route 14 → fare → mocked speech/Next → Home");
  const m=boot();await m.settle();await m.click("typeStart");
@@ -98,7 +98,9 @@ async function main(){
  await transfer.click("guideStart");
  assert.ok(transfer.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
  await transfer.click("nextInstruction");
- assert.match(transfer.get("stepBody").textContent,/TEST ROUTE A/);
+ assert.match(transfer.get("stepBody").textContent,/TEST ROUTE A/);assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));
+ await transfer.click("nextInstruction");await transfer.click("nextInstruction");
+ assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
  assert.equal(short.get("guideStart").disabled,true);
