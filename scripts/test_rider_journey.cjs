@@ -24,6 +24,15 @@ function syntheticTransfer(secondDeparture="09:10:00",exceptions=[],uncertainty=
   {id:"QA-B",route:"TEST ROUTE B",service,stops:secondStops}
  ]};
 }
+function syntheticEstimatedBoarding(){
+ const sample=syntheticTransfer();
+ sample.trips=[{id:"QA-ESTIMATED-BOARD",route:"TEST ESTIMATED BOARD",service:"QA-TEST",stops:[
+  {stop:interchange.id,arr:"08:00:00",dep:"08:00:00"},
+  {stop:origin.id,arr:"",dep:""},
+  {stop:target.id,arr:"09:30:00",dep:"09:30:00"}
+ ]}];
+ return sample;
+}
 class El{
  constructor(id="",tag="DIV"){this.id=id;this.tagName=tag;this.textContent="";this.value="";this.disabled=false;this.children=[];this.style={};this.classList={toggle(){}}}
  append(...x){this.children.push(...x)}
@@ -72,8 +81,9 @@ async function main(){
  const a=boot();await a.settle();
  assert.match(html,/id="dataStatus" role="status" aria-live="polite"/);
  assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/);
- assert.match(a.get("dataStatus").textContent,/525 mapped stops, 143 scheduled trips/);
- assert.match(a.get("dataStatus").textContent,/Snapshot Oct 27, 2026/);
+ assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
+ const dateLabel=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",year:"numeric"}).format(new Date(journeys.downloaded_utc));
+ assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match committed GTFS fixture");
  assert.match(a.get("dataStatus").textContent,/Not live arrivals; walking routes unverified/);
  console.log("PASS: visible GTFS snapshot freshness and non-live warning");
  assert.equal(a.state().official.stops.length,stops.stops.length);
@@ -126,6 +136,12 @@ async function main(){
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
+ const estimatedBoard=boot("2026-10-27T11:00:00Z",null,syntheticEstimatedBoarding());await estimatedBoard.settle();await selectAndrews(estimatedBoard);
+ assert.match(estimatedBoard.get("planFare").textContent,/^1 bus/,"Keep possible itinerary visible as an unverified preview");
+ assert.match(estimatedBoard.get("planStatus").textContent,/first boarding time is interpolated/i);
+ assert.equal(estimatedBoard.get("guideStart").disabled,true,"Unverified first departure must block spoken navigation");
+ await estimatedBoard.click("guideStart");assert.equal(estimatedBoard.state().screen,"itinerary");
+ console.log("PASS: estimated first boarding departure remains a preview and cannot start spoken guidance");
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
  assert.equal(short.get("guideStart").disabled,true);
  assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
