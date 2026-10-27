@@ -32,6 +32,7 @@ class El{
  focus(){}
 }
 function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,fault=null){
+ let clockInstant=instant;
  const ids=[...html.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map(x=>x[1]);
  const els=new Map(ids.map(x=>[x,new El(x)]));
  const get=id=>{if(!els.has(id))els.set(id,new El(id));return els.get(id)};
@@ -39,7 +40,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const spoken=[],speechSynthesis={cancel(){},speak:u=>spoken.push(u.text)};
  const window={scrollTo(){},speechSynthesis};
  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
- class FixedDate extends Date{constructor(...a){super(...(a.length?a:[instant]))}static now(){return new Date(instant).getTime()}}
+ class FixedDate extends Date{constructor(...a){super(...(a.length?a:[clockInstant]))}static now(){return new Date(clockInstant).getTime()}}
  const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:"Georgetown",state:"South Carolina"}});
  const fetch=async url=>{
   const u=String(url);
@@ -54,7 +55,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys})})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state};
+ return {get,click,settle,spoken,state:api.state,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -105,6 +106,14 @@ async function main(){
  assert.equal(late.get("guideStart").disabled,true);
  assert.match(late.get("planStatus").textContent,/No reachable scheduled departures remain today/);
  console.log("PASS: no fabricated late-night departures");
+ const expired=boot();await expired.settle();await selectAndrews(expired);
+ assert.equal(expired.get("guideStart").disabled,false);
+ expired.setInstant("2026-10-28T00:41:00Z"); // Rider leaves a valid itinerary open until after service ends.
+ await expired.click("guideStart");
+ assert.equal(expired.state().screen,"itinerary","Expired trip must not open spoken guidance");
+ assert.equal(expired.get("guideStart").disabled,true);
+ assert.match(expired.get("planStatus").textContent,/No reachable scheduled departures remain today/);
+ console.log("PASS: starting an old itinerary rechecks time and blocks expired boarding");
  const transfer=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await transfer.settle();await selectAndrews(transfer);
  assert.match(transfer.get("planFare").textContent,/^2 buses · 1 transfer · Estimated standard cash fare \$2\.00/);
  assert.equal(transfer.get("guideStart").disabled,false);
