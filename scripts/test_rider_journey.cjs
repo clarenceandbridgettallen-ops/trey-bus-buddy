@@ -221,6 +221,19 @@ async function main(){
  assert.equal(changed.get("guideStart").disabled,true,"Old guidance must be disabled while selecting a new destination");
  await changed.click("back");assert.equal(changed.state().screen,"chooseGoal","Back must not reopen a stale itinerary");
  console.log("PASS: change trip clears old destination, disables old guidance, and avoids stale itinerary history");
+
+ const publishedAlternative=syntheticEstimatedBoarding();
+ publishedAlternative.trips.push({id:"QA-PUBLISHED-ALTERNATIVE",route:"TEST PUBLISHED ALTERNATIVE",service:"QA-TEST",stops:[
+  {stop:origin.id,arr:"09:00:00",dep:"09:00:00"},
+  {stop:target.id,arr:"10:00:00",dep:"10:00:00"}
+ ]});
+ const preferred=boot("2026-10-27T11:00:00Z",null,publishedAlternative);await preferred.settle();await selectAndrews(preferred);
+ assert.equal(preferred.get("guideStart").disabled,false,"A later published-time departure must not be hidden by an earlier interpolated one");
+ assert.match(preferred.get("planStatus").textContent,/Scheduled itinerary preview/);
+ await preferred.click("guideStart");assert.equal(preferred.state().screen,"guide");
+ await preferred.click("nextInstruction");
+ assert.match(preferred.get("stepBody").textContent,/TEST PUBLISHED ALTERNATIVE/);
+ console.log("PASS: later published-time boarding beats an earlier interpolated preview");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
