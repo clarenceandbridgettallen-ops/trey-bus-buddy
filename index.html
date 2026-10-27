@@ -1,11 +1,12 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bus Buddy · Your trip, one step at a time</title><style>#dataStatus{font-size:13px;line-height:1.35;margin:2px 8px 10px;color:#403357;text-align:center}
 :root{font-family:system-ui,Arial,sans-serif;color:#251746;background:#f1edfc}*{box-sizing:border-box}body{margin:0 auto;max-width:560px;padding:12px}header{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}header strong{font-size:23px}header small{font-size:12px;color:#52456d}.screen{display:none;background:#fff;border:2px solid #7052ae;border-radius:24px;min-height:72vh;padding:22px 18px;text-align:center;flex-direction:column;align-items:stretch;justify-content:center;gap:15px}.screen.active{display:flex}h1{font-size:32px;line-height:1.15;margin:0}h2{font-size:29px;margin:0}p{font-size:19px;line-height:1.4;margin:0}.emoji{font-size:55px}button,a.big{display:block;width:100%;border-radius:18px;padding:19px 12px;font-size:21px;font-weight:800;border:2px solid #54318c;color:#291848;background:#fff;text-decoration:none;text-align:center;cursor:pointer;min-height:68px}button.primary,a.primary{background:#5634a4;color:#fff}button:disabled{opacity:.5}input{width:100%;padding:17px;border:2px solid #69528f;border-radius:14px;font-size:20px}label{font-weight:750;font-size:19px;text-align:left}.address,.stop{padding:18px;border:2px solid #9d8bc6;background:#f5f0ff;border-radius:17px;font-size:24px;font-weight:750;overflow-wrap:anywhere}.hint{font-size:16px;color:#514967}.status{font-size:17px;min-height:25px}footer{display:flex;gap:8px;margin:12px 0}footer button{font-size:16px;min-height:55px;padding:12px}#other button{font-size:17px;min-height:52px}.error{color:#a21d37;font-weight:700}.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}:focus-visible{outline:4px solid #e6a22c;outline-offset:2px}
-/* Keep Home, Back and report controls reachable on small phones without hiding the trip text. */
-footer{position:sticky;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px 0;background:#f1edfc;box-shadow:0 -6px 14px rgba(37,23,70,.12)}
+/* Fixed controls: a sticky footer after <main> cannot appear until the page is scrolled to its end. */
+body{padding-bottom:calc(var(--footer-height, 130px) + 32px)}
+footer{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(536px,calc(100% - 24px));z-index:20;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;padding:8px 0 calc(8px + env(safe-area-inset-bottom));background:#f1edfc;box-shadow:0 -6px 14px rgba(37,23,70,.12)}
 footer button{min-width:0;min-height:48px;padding:8px 5px;font-size:15px;line-height:1.2}
 #feedback{grid-column:1/-1}
-#guide{justify-content:flex-start}
-#guide #nextInstruction{position:sticky;bottom:126px;z-index:10;box-shadow:0 3px 10px rgba(37,23,70,.16)}
+#guide{justify-content:flex-start;padding-bottom:calc(var(--footer-height, 130px) + 100px)}
+#guide #nextInstruction{position:fixed;left:50%;transform:translateX(-50%);width:min(500px,calc(100% - 48px));bottom:calc(var(--footer-height, 130px) + 8px);z-index:15;box-shadow:0 3px 10px rgba(37,23,70,.16)}
 </style></head><body>
 <header><strong>🚌 Bus Buddy</strong><small>Preview v36</small></header>
 <p id="dataStatus" role="status" aria-live="polite">Loading stored Coast RTA route data. No live arrivals.</p>
@@ -23,6 +24,10 @@ footer button{min-width:0;min-height:48px;padding:8px 5px;font-size:15px;line-he
 <p class="hint" style="text-align:center">Public preview. Never rely on this app alone for safe boarding, live arrivals, or a stop alert. Confirm with Coast RTA: <a href="tel:+18434880865">843-488-0865</a>. <a href="trey-original-journey.html">Original trip guide</a>.</p>
 <script>
 "use strict";
+// Measure the real footer height so zoom, font scaling and safe-area insets cannot cover NEXT.
+function syncBottomControls(){const footer=document.querySelector("footer");const height=footer?.getBoundingClientRect?.().height;if(Number.isFinite(height)&&height>0&&document.documentElement?.style?.setProperty)document.documentElement.style.setProperty("--footer-height",Math.ceil(height)+"px")}
+syncBottomControls();
+if(typeof ResizeObserver!=="undefined"){new ResizeObserver(syncBottomControls).observe(document.querySelector("footer"))}else if(window.addEventListener){window.addEventListener("resize",syncBottomControls)}
 const $=id=>document.getElementById(id);let screen="welcome",history=[],pos=null,stops=[],selected=null,official=null,source="",destination=null,journeys=null,steps=[],stepIndex=0;const base="https://coastrta.transloc.com/";let navigationVersion=0;
 function focusScreen(id){const target=document.querySelector("#"+id+" h1,#"+id+" h2")||document.querySelector("#"+id+" button");if(!target)return;if(/^H[12]$/.test(target.tagName))target.setAttribute("tabindex","-1");target.focus()}
 function stopSpeech(){if("speechSynthesis" in window)window.speechSynthesis.cancel()}
