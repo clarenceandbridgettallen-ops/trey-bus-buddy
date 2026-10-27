@@ -80,7 +80,10 @@ async function main(){
  await a.click("fareDone");await a.click("guideStart");
  assert.equal(a.state().screen,"guide");
  assert.ok(a.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
- await a.click("nextInstruction");assert.match(a.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));await a.click("home");
+ await a.click("nextInstruction");assert.match(a.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));
+ await a.click("nextInstruction");assert.match(a.get("stepBody").textContent,/Get off at .*official stop ID TL-/);
+ await a.click("nextInstruction");assert.match(a.get("stepBody").textContent,/Walk from .*official stop ID TL-/);
+ await a.click("home");
  assert.equal(a.state().screen,"welcome");assert.equal(a.state().destination,null);
  console.log("PASS: GPS → place search → Route 14 → fare → mocked speech/Next → Home");
  const m=boot();await m.settle();await m.click("typeStart");
@@ -105,7 +108,9 @@ async function main(){
  assert.ok(transfer.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,/TEST ROUTE A/);assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));
- await transfer.click("nextInstruction");await transfer.click("nextInstruction");
+ await transfer.click("nextInstruction");
+ assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
+ await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
@@ -140,6 +145,9 @@ async function main(){
  const nearby=boot();await nearby.settle();await nearby.click("locate");await nearby.settle();await nearby.click("yesLocation");await nearby.click("goNearest");
  assert.equal(nearby.state().screen,"nearest");
  assert.match(nearby.get("stopDetails").textContent,/STRAIGHT-LINE \(not a verified walk\)/);
+ await nearby.click("differentStop");
+ assert.match(nearby.get("stopOptions").children[0].textContent,/stop ID TL-/);
+ await nearby.get("stopOptions").children[0].onclick();
  await nearby.click("chooseStop");assert.equal(nearby.state().screen,"walk");
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
