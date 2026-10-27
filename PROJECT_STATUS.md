@@ -46,3 +46,10 @@ Only finished when actual origin → in-app destination → complete verified it
 - Independently checked repository JSON in the connected session: 525/525 stop IDs appear in 143 trips; zero missing stop references and zero missing calendar references.
 - No Android end-to-end journey, scheduled-connection correctness, or published deployment was verified in this run.
 - Next: build deterministic temporal routing tests that can identify whether service-day filtering, departures, or transfer graph traversal prevents a journey; then implement multiple transfers without inventing pedestrian paths.
+
+## Development run 2026-10-26: Directed master network foundation
+- Inspected Preview v36, stop and journey JSON, and current status. Confirmed planner only supports direct and one-transfer journeys, with straight-line proximity checks.
+- Added `scripts/build_network.py` (commit d44df5ac43a3c186f380398c431c8664a78adc4e): creates directed links between consecutive ordered stops, retaining trip, route, service, direction, and time uncertainty. Running it in the repository generates `data/coast-rta-network.json`; generated output has NOT been committed or independently validated against the complete agency feed.
+- Added `scripts/test_network.py` (commit 0d85810e8fcfea6a48e2492d08007c587e72d4b6). Four equivalent synthetic tests passed locally before commit: direction, blank times, missing stop, duplicate stop, invalid coordinates. GitHub Actions execution is NOT verified.
+- No rider-facing code changed. Preview v36 routing failures remain. No real-world route or safe walking path verified.
+- Next: run network builder against repository's actual feed; validate directed connectivity, then implement timetable-based multi-transfer route search with deterministic fixtures and preserve pedestrian-safety restrictions.
