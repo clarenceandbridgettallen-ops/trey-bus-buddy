@@ -10,6 +10,16 @@ assert.ok(script&&stops.stops.length>=50&&journeys.trips.length);
 const origin=stops.stops.find(s=>/Georgetown Transfer Center/i.test(s.name));
 const target=stops.stops.find(s=>/Andrews Piggly Wiggly/i.test(s.name));
 assert.ok(origin&&target,"Official Route 14 fixture stops absent");
+const interchange=stops.stops.find(s=>s.name==="Conway Terminal");
+assert.ok(interchange,"Conway transfer fixture stop absent");
+// Deliberately synthetic timetables, never presented as Coast RTA departure claims.
+function syntheticTransfer(secondDeparture="09:10:00",exceptions=[]){
+ const service="QA-TEST";
+ return {source:"synthetic regression only",calendar:[{service_id:service,start_date:"20260101",end_date:"20261231",monday:"1",tuesday:"1",wednesday:"1",thursday:"1",friday:"1",saturday:"1",sunday:"1"}],exceptions,trips:[
+  {id:"QA-A",route:"TEST ROUTE A",service,stops:[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"09:00:00",dep:"09:00:00"}]},
+  {id:"QA-B",route:"TEST ROUTE B",service,stops:[{stop:interchange.id,arr:secondDeparture,dep:secondDeparture},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}]}
+ ]};
+}
 class El{
  constructor(id="",tag="DIV"){this.id=id;this.tagName=tag;this.textContent="";this.value="";this.disabled=false;this.children=[];this.style={};this.classList={toggle(){}}}
  append(...x){this.children.push(...x)}
@@ -17,7 +27,7 @@ class El{
  setAttribute(){}
  focus(){}
 }
-function boot(instant="2026-10-27T11:00:00Z",deferred=null){
+function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null){
  const ids=[...html.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map(x=>x[1]);
  const els=new Map(ids.map(x=>[x,new El(x)]));
  const get=id=>{if(!els.has(id))els.set(id,new El(id));return els.get(id)};
@@ -30,7 +40,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null){
  const fetch=async url=>{
   const u=String(url);
   if(u.includes("coast-rta-stops.json"))return {ok:true,json:async()=>stops};
-  if(u.includes("coast-rta-journeys.json"))return {ok:true,json:async()=>journeys};
+  if(u.includes("coast-rta-journeys.json"))return {ok:true,json:async()=>fixtureJourneys||journeys};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>[]};
@@ -82,6 +92,25 @@ async function main(){
  assert.equal(late.get("guideStart").disabled,true);
  assert.match(late.get("planStatus").textContent,/No reachable scheduled departures remain today/);
  console.log("PASS: no fabricated late-night departures");
+ const transfer=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await transfer.settle();await selectAndrews(transfer);
+ assert.match(transfer.get("planFare").textContent,/^2 buses · 1 transfer · Estimated standard cash fare \$2\.00/);
+ assert.equal(transfer.get("guideStart").disabled,false);
+ await transfer.click("guideStart");
+ assert.ok(transfer.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
+ await transfer.click("nextInstruction");
+ assert.match(transfer.get("stepBody").textContent,/TEST ROUTE A/);
+ console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
+ const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
+ assert.equal(short.get("guideStart").disabled,true);
+ assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
+ console.log("PASS: synthetic transfer under five minutes is rejected");
+ const removed=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[{service_id:"QA-TEST",date:"20261027",exception_type:"2"}]));await removed.settle();await selectAndrews(removed);
+ assert.equal(removed.get("guideStart").disabled,true);
+ console.log("PASS: removed service-calendar exception blocks itinerary");
+ const holiday=boot("2026-11-26T12:00:00Z");await holiday.settle();await selectAndrews(holiday);
+ assert.equal(holiday.get("guideStart").disabled,true);
+ assert.match(holiday.get("planStatus").textContent,/No Coast RTA fixed-route service is scheduled today/);
+ console.log("PASS: Thanksgiving holiday does not generate an itinerary");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
