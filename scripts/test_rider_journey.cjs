@@ -13,11 +13,15 @@ assert.ok(origin&&target,"Official Route 14 fixture stops absent");
 const interchange=stops.stops.find(s=>s.name==="Conway Terminal");
 assert.ok(interchange,"Conway transfer fixture stop absent");
 // Deliberately synthetic timetables, never presented as Coast RTA departure claims.
-function syntheticTransfer(secondDeparture="09:10:00",exceptions=[]){
+function syntheticTransfer(secondDeparture="09:10:00",exceptions=[],uncertainty="none"){
  const service="QA-TEST";
+ const preInterchange=stops.stops.find(s=>s.id!==interchange.id&&/Conway/i.test(s.name));
+ assert.ok(preInterchange,"Conway fixture stop for estimated departure absent");
+ const firstStops=uncertainty==="arrival"?[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"",dep:""},{stop:origin.id,arr:"09:00:00",dep:"09:00:00"}]:[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"09:00:00",dep:"09:00:00"}];
+ const secondStops=uncertainty==="departure"?[{stop:preInterchange.id,arr:"08:55:00",dep:"08:55:00"},{stop:interchange.id,arr:"",dep:""},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}]:[{stop:interchange.id,arr:secondDeparture,dep:secondDeparture},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}];
  return {source:"synthetic regression only",calendar:[{service_id:service,start_date:"20260101",end_date:"20261231",monday:"1",tuesday:"1",wednesday:"1",thursday:"1",friday:"1",saturday:"1",sunday:"1"}],exceptions,trips:[
-  {id:"QA-A",route:"TEST ROUTE A",service,stops:[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"09:00:00",dep:"09:00:00"}]},
-  {id:"QA-B",route:"TEST ROUTE B",service,stops:[{stop:interchange.id,arr:secondDeparture,dep:secondDeparture},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}]}
+  {id:"QA-A",route:"TEST ROUTE A",service,stops:firstStops},
+  {id:"QA-B",route:"TEST ROUTE B",service,stops:secondStops}
  ]};
 }
 class El{
@@ -117,6 +121,14 @@ async function main(){
  assert.equal(short.get("guideStart").disabled,true);
  assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
  console.log("PASS: synthetic transfer under five minutes is rejected");
+ const uncertainArrival=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[],"arrival"));await uncertainArrival.settle();await selectAndrews(uncertainArrival);
+ assert.equal(uncertainArrival.get("guideStart").disabled,true,"Interpolated transfer arrival must not be advertised as a confirmed connection");
+ assert.match(uncertainArrival.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
+ console.log("PASS: interpolated transfer arrival cannot authorize guided connection");
+ const uncertainDeparture=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[],"departure"));await uncertainDeparture.settle();await selectAndrews(uncertainDeparture);
+ assert.equal(uncertainDeparture.get("guideStart").disabled,true,"Interpolated onward departure must not be advertised as a confirmed connection");
+ assert.match(uncertainDeparture.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
+ console.log("PASS: interpolated onward departure cannot authorize guided connection");
  const removed=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[{service_id:"QA-TEST",date:"20261027",exception_type:"2"}]));await removed.settle();await selectAndrews(removed);
  assert.equal(removed.get("guideStart").disabled,true);
  console.log("PASS: removed service-calendar exception blocks itinerary");
