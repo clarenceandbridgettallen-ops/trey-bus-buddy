@@ -238,6 +238,28 @@ async function main(){
  await preferred.click("nextInstruction");
  assert.match(preferred.get("stepBody").textContent,/TEST PUBLISHED ALTERNATIVE/);
  console.log("PASS: later published-time boarding beats an earlier interpolated preview");
+ // Synthetic near-miss at 07:08 local: the old three-minute lead accepted this as reachable.
+ // Ten minutes is only a conservative screening floor, not an accessible walking guarantee.
+ const soonFixture=syntheticTransfer();
+ soonFixture.trips=[{id:"QA-TOO-SOON",route:"TEST TOO SOON",service:"QA-TEST",stops:[
+  {stop:origin.id,arr:"07:08:00",dep:"07:08:00"},
+  {stop:target.id,arr:"08:00:00",dep:"08:00:00"}
+ ]}];
+ const soon=boot("2026-10-27T11:00:00Z",null,soonFixture);await soon.settle();await selectAndrews(soon);
+ assert.equal(soon.get("guideStart").disabled,true,"Do not authorize a bus leaving in eight minutes even from the mapped boarding stop");
+ assert.match(soon.get("planStatus").textContent,/No reachable scheduled departures remain today/);
+ console.log("PASS: eight-minute departure fails conservative boarding lead-time screening");
+
+ const laterFixture=syntheticTransfer();
+ laterFixture.trips=[...soonFixture.trips,{id:"QA-BOARDING-WINDOW",route:"TEST LATER BOARDING",service:"QA-TEST",stops:[
+  {stop:origin.id,arr:"07:25:00",dep:"07:25:00"},
+  {stop:target.id,arr:"08:20:00",dep:"08:20:00"}
+ ]}];
+ const later=boot("2026-10-27T11:00:00Z",null,laterFixture);await later.settle();await selectAndrews(later);
+ assert.equal(later.get("guideStart").disabled,false,"Later published departure must remain selectable");
+ await later.click("guideStart");assert.equal(later.state().screen,"guide");
+ await later.click("nextInstruction");assert.match(later.get("stepBody").textContent,/TEST LATER BOARDING/);
+ console.log("PASS: later published boarding remains selectable after conservative screening");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
