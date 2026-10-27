@@ -145,13 +145,20 @@ async function main(){
  await candidates[1].onclick();assert.equal(ambiguous.state().screen,"confirmDestination");
  assert.match(ambiguous.get("destinationAddress").textContent,/456 Sample Street/);
  await ambiguous.click("noDestination");assert.equal(ambiguous.state().screen,"searchResults");assert.equal(ambiguous.state().destination,null,"Rejected destination must not persist");
- console.log("PASS: synthetic ambiguous business requires explicit result and address confirmation");
+ await candidates[0].onclick();assert.equal(ambiguous.state().screen,"confirmDestination");
+ await ambiguous.click("back");assert.equal(ambiguous.state().screen,"searchResults");assert.equal(ambiguous.state().destination,null,"Back from destination confirmation must clear abandoned choice");
+ console.log("PASS: rejecting or backing out of a suggested destination clears the selection");
  const unknown=boot();await unknown.settle();await unknown.click("locate");await unknown.settle();await unknown.click("yesLocation");await unknown.click("goDestination");
  unknown.get("destinationInput").value="ZZZ Unknown Shop";await unknown.click("findTrip");
  assert.equal(unknown.state().screen,"destination");
  assert.equal(unknown.state().destination,null);
  assert.match(unknown.get("tripStatus").textContent,/couldn't find that business name/);
  console.log("PASS: unlisted business does not fabricate a destination");
+ const changed=boot();await changed.settle();await selectAndrews(changed);
+ await changed.click("changeTrip");assert.equal(changed.state().screen,"destination");assert.equal(changed.state().destination,null,"Changing trip must clear old destination");
+ assert.equal(changed.get("guideStart").disabled,true,"Old guidance must be disabled while selecting a new destination");
+ await changed.click("back");assert.equal(changed.state().screen,"chooseGoal","Back must not reopen a stale itinerary");
+ console.log("PASS: change trip clears old destination, disables old guidance, and avoids stale itinerary history");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
