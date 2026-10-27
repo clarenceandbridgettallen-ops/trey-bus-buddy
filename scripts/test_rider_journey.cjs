@@ -40,7 +40,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const fetch=async url=>{
   const u=String(url);
   if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
-  if(u.includes("coast-rta-journeys.json"))return {ok:true,json:async()=>fixtureJourneys||journeys};
+  if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fixtureJourneys||journeys};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>[]};
@@ -65,6 +65,12 @@ async function selectAndrews(a){
 }
 async function main(){
  const a=boot();await a.settle();
+ assert.match(html,/id="dataStatus" role="status" aria-live="polite"/);
+ assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/);
+ assert.match(a.get("dataStatus").textContent,/525 mapped stops, 143 scheduled trips/);
+ assert.match(a.get("dataStatus").textContent,/Snapshot Oct 27, 2026/);
+ assert.match(a.get("dataStatus").textContent,/Not live arrivals; walking routes unverified/);
+ console.log("PASS: visible GTFS snapshot freshness and non-live warning");
  assert.equal(a.state().official.stops.length,stops.stops.length);
  assert.equal(a.state().journeys.trips.length,journeys.trips.length);
  await selectAndrews(a);
@@ -121,10 +127,16 @@ async function main(){
  console.log("PASS: GPS permission denied offers typed location fallback");
  const offline=boot("2026-10-27T11:00:00Z",null,null,"stops-offline");await offline.settle();
  assert.equal(offline.state().official,null);
+ assert.match(offline.get("dataStatus").textContent,/stop data unavailable/i);
  await offline.click("locate");await offline.settle();await offline.click("yesLocation");await offline.click("goNearest");
  assert.equal(offline.state().screen,"problem");
  assert.match(offline.get("problemText").textContent,/Official Coast RTA stop data is unavailable/);
  console.log("PASS: unavailable official stop data blocks unverified nearest-stop recommendation");
+ const schedulesDown=boot("2026-10-27T11:00:00Z",null,null,"journeys-offline");await schedulesDown.settle();
+ assert.match(schedulesDown.get("dataStatus").textContent,/trip schedules unavailable/i);
+ await selectAndrews(schedulesDown);
+ assert.equal(schedulesDown.get("guideStart").disabled,true);
+ console.log("PASS: unavailable journey schedule is visibly disclosed and disables guided trip");
  const nearby=boot();await nearby.settle();await nearby.click("locate");await nearby.settle();await nearby.click("yesLocation");await nearby.click("goNearest");
  assert.equal(nearby.state().screen,"nearest");
  assert.match(nearby.get("stopDetails").textContent,/STRAIGHT-LINE \(not a verified walk\)/);
