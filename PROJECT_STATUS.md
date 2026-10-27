@@ -40,3 +40,9 @@ Farrow Parkway-area Walmart → Surfside Walmart; Belle Isle Bistro Georgetown; 
 Inspect latest source and commits → diagnose one highest-priority root cause → implement smallest safe change → test code, data, real user flow and regression cases → commit → verify deployment → record evidence, failures and next action here. Label implemented/tested/deployed/verified separately.
 ## Completion gate
 Only finished when actual origin → in-app destination → complete verified itinerary → safe boarding and transfers → spoken navigation → arrival works reliably across published Coast RTA service, including uncertain-data handling.
+
+## Development run 2026-10-26: Transit integrity baseline
+- Added `scripts/audit_journeys.py` in commit `737ac96bd422957b8a6f4e1233a78254d4821ae2`. This is an offline integrity audit; not a journey-planner fix.
+- Independently checked repository JSON in the connected session: 525/525 stop IDs appear in 143 trips; zero missing stop references and zero missing calendar references.
+- No Android end-to-end journey, scheduled-connection correctness, or published deployment was verified in this run.
+- Next: build deterministic temporal routing tests that can identify whether service-day filtering, departures, or transfer graph traversal prevents a journey; then implement multiple transfers without inventing pedestrian paths.
