@@ -85,6 +85,10 @@ async function main(){
  const dateLabel=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",year:"numeric"}).format(new Date(journeys.downloaded_utc));
  assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match committed GTFS fixture");
  assert.match(a.get("dataStatus").textContent,/Not live arrivals; walking routes unverified/);
+ assert.doesNotMatch(a.get("dataStatus").textContent,/WARNING: stored schedules are older than 7 days/,"Fresh snapshot must not be marked stale");
+ const oldSnapshot=boot("2026-11-10T12:00:00Z");await oldSnapshot.settle();
+ assert.match(oldSnapshot.get("dataStatus").textContent,/WARNING: stored schedules are older than 7 days or undated/,"Stale Coast RTA snapshot must show a rider-visible warning");
+ console.log("PASS: stored GTFS older than seven days triggers visible service-freshness warning");
  console.log("PASS: visible GTFS snapshot freshness and non-live warning");
  assert.equal(a.state().official.stops.length,stops.stops.length);
  assert.equal(a.state().journeys.trips.length,journeys.trips.length);
