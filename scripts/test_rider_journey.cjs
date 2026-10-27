@@ -144,7 +144,7 @@ async function main(){
  assert.notEqual(candidates[0].children[1].textContent,candidates[1].children[1].textContent);
  await candidates[1].onclick();assert.equal(ambiguous.state().screen,"confirmDestination");
  assert.match(ambiguous.get("destinationAddress").textContent,/456 Sample Street/);
- await ambiguous.click("noDestination");assert.equal(ambiguous.state().screen,"searchResults");
+ await ambiguous.click("noDestination");assert.equal(ambiguous.state().screen,"searchResults");assert.equal(ambiguous.state().destination,null,"Rejected destination must not persist");
  console.log("PASS: synthetic ambiguous business requires explicit result and address confirmation");
  const unknown=boot();await unknown.settle();await unknown.click("locate");await unknown.settle();await unknown.click("yesLocation");await unknown.click("goDestination");
  unknown.get("destinationInput").value="ZZZ Unknown Shop";await unknown.click("findTrip");
