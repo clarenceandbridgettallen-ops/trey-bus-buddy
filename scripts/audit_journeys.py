@@ -24,6 +24,15 @@ for t in data["trips"]:
 print(f"Stops: {len(stops)}; trips: {len(data['trips'])}; calendars: {len(services)}")
 print(f"Stops with scheduled trip coverage: {len(routes)}; stops without trip coverage: {len(ids-set(routes))}")
 print(f"Stop-to-stop directed links: {sum(map(len,edges.values()))}")
+trip_links=sum(max(0,len(t["stops"])-1) for t in data["trips"])
+published_time_links=sum(
+    bool(a.get("dep") and b.get("arr"))
+    for t in data["trips"]
+    for a,b in zip(t["stops"],t["stops"][1:])
+)
+print(f"Trip-sequence links: {trip_links}; links with both published endpoint times: {published_time_links}; time-incomplete links: {trip_links-published_time_links}")
+if published_time_links<trip_links:
+    print("NOTICE: Time-incomplete links are route-order evidence, NOT verified scheduled stop-to-stop travel times.")
 print(f"Integrity issues: {len(issues)}")
 for issue in issues[:30]:print("ERROR:",issue)
 if issues:raise SystemExit(1)
