@@ -1,0 +1,31 @@
+name: Bus Buddy rider journey regression
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - index.html
+      - data/coast-rta-stops.json
+      - data/coast-rta-journeys.json
+      - scripts/test_rider_journey.cjs
+      - .github/workflows/rider-journey-tests.yml
+  pull_request:
+    paths:
+      - index.html
+      - data/coast-rta-stops.json
+      - data/coast-rta-journeys.json
+      - scripts/test_rider_journey.cjs
+      - .github/workflows/rider-journey-tests.yml
+permissions:
+  contents: read
+jobs:
+  mock-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check application and regression script syntax
+        run: |
+          node --check scripts/test_rider_journey.cjs
+          node -e "const fs=require('node:fs'); const vm=require('node:vm'); const h=fs.readFileSync('index.html','utf8'); const js=h.match(/<script>([\\s\\S]*?)<\\/script>/)?.[1]; if(!js) throw Error('Missing inline script'); new vm.Script(js);"
+      - name: Exercise mocked start-to-destination journey
+        run: node scripts/test_rider_journey.cjs
