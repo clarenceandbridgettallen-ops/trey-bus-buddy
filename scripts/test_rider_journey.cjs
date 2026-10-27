@@ -145,10 +145,13 @@ async function main(){
  const nearby=boot();await nearby.settle();await nearby.click("locate");await nearby.settle();await nearby.click("yesLocation");await nearby.click("goNearest");
  assert.equal(nearby.state().screen,"nearest");
  assert.match(nearby.get("stopDetails").textContent,/STRAIGHT-LINE \(not a verified walk\)/);
+ assert.ok(nearby.spoken.some(s=>/mapped bus stop.*official stop ID TL-/i.test(s)),"Nearest-stop spoken guidance must distinguish duplicated names by ID");
  await nearby.click("differentStop");
  assert.match(nearby.get("stopOptions").children[0].textContent,/stop ID TL-/);
  await nearby.get("stopOptions").children[0].onclick();
  await nearby.click("chooseStop");assert.equal(nearby.state().screen,"walk");
+ assert.match(nearby.get("walkStop").textContent,/official stop ID TL-/);
+ assert.ok(nearby.spoken.some(s=>/Ready to walk to .*official stop ID TL-/.test(s)),"Walk-start spoken guidance must include stop ID");
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
  const distant=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await distant.settle();await selectAndrews(distant);
