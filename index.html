@@ -141,7 +141,7 @@ speak("Is this the right place? "+destination.name+" "+destination.address);
 }catch(e){if(navigationVersion===requestVersion&&screen==="destination")$("tripStatus").textContent=e.message}
 finally{$("findTrip").disabled=false}
 };
-$("noDestination").onclick=()=>show("searchResults");$("resultsBack").onclick=()=>show("destination");
+$("noDestination").onclick=()=>{destination=null;show("searchResults")};$("resultsBack").onclick=()=>{destination=null;show("destination")};
 function localClock(){const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date()).split(":").map(Number);return parts[0]*60+parts[1]}
 function localServiceDate(){const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).filter(x=>x.type!=="literal").map(x=>[x.type,x.value]));return parts.year+parts.month+parts.day}
 function isCoastRtaHoliday(d){const y=Number(d.slice(0,4)),m=Number(d.slice(4,6)),day=Number(d.slice(6,8));if((m===1&&day===1)||(m===12&&day===25))return true;if(m!==11)return false;const firstDay=new Date(Date.UTC(y,10,1)).getUTCDay();return day===1+((4-firstDay+7)%7)+21}
