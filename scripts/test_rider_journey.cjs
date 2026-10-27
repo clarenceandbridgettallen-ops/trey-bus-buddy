@@ -42,7 +42,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
   if(u.includes("coast-rta-journeys.json"))return {ok:true,json:async()=>fixtureJourneys||journeys};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
-  if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
+  if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>[]};
   throw Error("Unexpected mock fetch: "+u);
  };
@@ -123,6 +123,35 @@ async function main(){
  assert.equal(offline.state().screen,"problem");
  assert.match(offline.get("problemText").textContent,/Official Coast RTA stop data is unavailable/);
  console.log("PASS: unavailable official stop data blocks unverified nearest-stop recommendation");
+ const nearby=boot();await nearby.settle();await nearby.click("locate");await nearby.settle();await nearby.click("yesLocation");await nearby.click("goNearest");
+ assert.equal(nearby.state().screen,"nearest");
+ assert.match(nearby.get("stopDetails").textContent,/STRAIGHT-LINE \(not a verified walk\)/);
+ await nearby.click("chooseStop");assert.equal(nearby.state().screen,"walk");
+ assert.match(nearby.get("walkLink").href,/travelmode=walking/);
+ console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
+ const distant=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await distant.settle();await selectAndrews(distant);
+ distant.state().destination.lat=target.lat+0.03; // Deliberately synthetic ~3.3 km final walk, not a real address.
+ await distant.click("yesDestination");
+ assert.match(distant.get("planStatus").textContent,/last stop is [0-9]+ meters straight-line/);
+ assert.equal(distant.get("guideStart").disabled,true);
+ console.log("PASS: synthetic distant final walk blocks guided trip");
+ const ambiguous=boot();await ambiguous.settle();await ambiguous.click("locate");await ambiguous.settle();await ambiguous.click("yesLocation");await ambiguous.click("goDestination");
+ ambiguous.get("destinationInput").value="Walmart";await ambiguous.click("findTrip");
+ assert.equal(ambiguous.state().screen,"searchResults");
+ assert.equal(ambiguous.get("placeResults").children.length,2);
+ assert.equal(ambiguous.state().destination,null);
+ const candidates=ambiguous.get("placeResults").children;
+ assert.notEqual(candidates[0].children[1].textContent,candidates[1].children[1].textContent);
+ await candidates[1].onclick();assert.equal(ambiguous.state().screen,"confirmDestination");
+ assert.match(ambiguous.get("destinationAddress").textContent,/456 Sample Street/);
+ await ambiguous.click("noDestination");assert.equal(ambiguous.state().screen,"searchResults");
+ console.log("PASS: synthetic ambiguous business requires explicit result and address confirmation");
+ const unknown=boot();await unknown.settle();await unknown.click("locate");await unknown.settle();await unknown.click("yesLocation");await unknown.click("goDestination");
+ unknown.get("destinationInput").value="ZZZ Unknown Shop";await unknown.click("findTrip");
+ assert.equal(unknown.state().screen,"destination");
+ assert.equal(unknown.state().destination,null);
+ assert.match(unknown.get("tripStatus").textContent,/couldn't find that business name/);
+ console.log("PASS: unlisted business does not fabricate a destination");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
