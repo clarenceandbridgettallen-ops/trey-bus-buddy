@@ -6,6 +6,14 @@ const html=fs.readFileSync(path.join(root,"index.html"),"utf8");
 const stops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
 const journeys=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-journeys.json"),"utf8"));
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+// Two current official Coast RTA pages conflict: contactless-fare-payment says 5–7 PM,
+// how-to-ride says 3–6 PM. Do not assert either is the authoritative peak window.
+assert.match(html,/official pages disagree on afternoon peak hours \(3–6 PM versus 5–7 PM\)/);
+assert.match(html,/Do not assume a free ride: budget \$1 per boarding/);
+assert.match(html,/https:\/\/coastrta\.com\/contactless-fare-payment\//);
+assert.match(html,/https:\/\/coastrta\.com\/how-to-ride\//);
+console.log("PASS: contradictory official peak-hour fare pages disclosed without claiming a free ride");
+
 assert.ok(script&&stops.stops.length>=50&&journeys.trips.length);
 const origin=stops.stops.find(s=>/Georgetown Transfer Center/i.test(s.name));
 const target=stops.stops.find(s=>/Andrews Piggly Wiggly/i.test(s.name));
