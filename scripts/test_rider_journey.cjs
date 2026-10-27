@@ -80,10 +80,15 @@ async function selectAndrews(a){
 async function main(){
  const a=boot();await a.settle();
  // Static CSS guard; actual mobile scrolling, TalkBack and focus still need device testing.
- assert.match(html,/footer\{position:sticky;bottom:0;/,"Home/Back/report controls need a sticky mobile footer");
+ // A sticky footer placed after <main> is invisible on long screens until scrolled into view.
+ assert.match(html,/footer\{position:fixed;left:50%;/,"Home/Back/report must be fixed to the viewport");
+ assert.match(html,/body\{padding-bottom:calc\(var\(--footer-height, 130px\) \+ 32px\)\}/,"Content needs clearance below the fixed footer");
  assert.match(html,/#feedback\{grid-column:1\/-1\}/,"Report button needs full-width mobile row");
- assert.match(html,/#guide #nextInstruction\{position:sticky;bottom:126px;/,"NEXT should stay above the footer");
- console.log("PASS: sticky mobile Home/Back/report and NEXT CSS safeguards (source-only)");
+ assert.match(html,/#guide #nextInstruction\{position:fixed;/,"NEXT must remain visible above the fixed footer");
+ assert.match(html,/bottom:calc\(var\(--footer-height, 130px\) \+ 8px\)/,"NEXT must track measured footer height");
+ assert.match(html,/function syncBottomControls\(\)/,"Footer height must adapt to zoom and text scaling");
+ assert.doesNotMatch(html,/footer\{position:sticky;/,"Footer must not regress to below-the-fold sticky positioning");
+ console.log("PASS: fixed mobile Home/Back/report and NEXT layout safeguards (source-only)");
  assert.match(html,/id="dataStatus" role="status" aria-live="polite"/);
  assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/);
  assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
