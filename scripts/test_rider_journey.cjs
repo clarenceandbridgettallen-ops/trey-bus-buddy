@@ -79,6 +79,11 @@ async function selectAndrews(a){
 }
 async function main(){
  const a=boot();await a.settle();
+ // Static CSS guard; actual mobile scrolling, TalkBack and focus still need device testing.
+ assert.match(html,/footer\{position:sticky;bottom:0;/,"Home/Back/report controls need a sticky mobile footer");
+ assert.match(html,/#feedback\{grid-column:1\/-1\}/,"Report button needs full-width mobile row");
+ assert.match(html,/#guide #nextInstruction\{position:sticky;bottom:126px;/,"NEXT should stay above the footer");
+ console.log("PASS: sticky mobile Home/Back/report and NEXT CSS safeguards (source-only)");
  assert.match(html,/id="dataStatus" role="status" aria-live="polite"/);
  assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/);
  assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
