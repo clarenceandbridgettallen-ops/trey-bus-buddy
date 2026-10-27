@@ -46,7 +46,7 @@ def main():
   audit={"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"gtfs_stop_count":len(stops),"gtfs_routes":len(routes),"tracker_route_15s_url":TRACKER,"tracker_status":"not_checked","tracker_matching_stop_ids":[],"tracker_missing_stop_ids":[]}
   try:
    vehicle_data=get(VEHICLES)
-   audit["vehicle_feed"]={"reachable":True,"bytes":len(vehicle_data),"protobuf_likely":bool(vehicle_data and vehicle_data[:1]!=b"<")}
+   audit["vehicle_feed"]={"reachable":True,"bytes":len(vehicle_data),"protobuf_likely":bool(len(vehicle_data)>=32 and vehicle_data[:1]!=b"<" and any(b<9 or b>126 for b in vehicle_data[:128])),"decoded":False,"live_arrivals_verified":False}
   except Exception as e:audit["vehicle_feed"]={"reachable":False,"error":str(e)}
   try:
    page=get(TRACKER).decode("utf-8","replace")
