@@ -121,8 +121,12 @@ async function main(){
  assert.match(oldSnapshot.get("planStatus").textContent,/stale, future-dated, or undated/);
  const savedStopStamp=stops.downloaded_utc;
  stops.downloaded_utc="2026-10-01T00:00:00Z";
- const staleStopsOnly=boot();await staleStopsOnly.settle();await selectAndrews(staleStopsOnly);
+ const staleStopsOnly=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await staleStopsOnly.settle();await selectAndrews(staleStopsOnly);
  assert.equal(staleStopsOnly.get("guideStart").disabled,true,"Fresh journeys cannot mask stale stop coordinates");
+ const staleMapLinks=staleStopsOnly.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALK|WALKING/i.test(x.textContent));
+ assert.equal(staleMapLinks.length,0,"Stale coordinates must not offer itinerary walking-map links");
+ assert.ok(staleStopsOnly.get("planSteps").children.some(x=>/Walking map links are disabled/.test(x.textContent)),"Itinerary must explain missing walking links");
+ console.log("PASS: stale stop coordinates hide both itinerary walking-map links");
  assert.match(staleStopsOnly.get("dataStatus").textContent,/stored stops or schedules are older than 7 days/);
  await staleStopsOnly.click("home");await staleStopsOnly.click("locate");await staleStopsOnly.settle();
  await staleStopsOnly.click("yesLocation");await staleStopsOnly.click("goNearest");
@@ -134,6 +138,17 @@ async function main(){
  assert.ok(staleStopsOnly.spoken.some(s=>/mapped stop inventory is not current/i.test(s)),"Spoken warning must not encourage walking to a stale stop");
  console.log("PASS: stale stop inventory blocks nearest-stop walking link and warns in speech");
  stops.downloaded_utc=savedStopStamp;
+ const freshWalk=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await freshWalk.settle();await selectAndrews(freshWalk);
+ const freshLinks=freshWalk.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALK|WALKING/i.test(x.textContent));
+ assert.equal(freshLinks.length,2,"Fresh itinerary should retain both walking-map links for pedestrian review");
+ stops.downloaded_utc="2026-10-01T00:00:00Z";
+ let prevented=false;
+ const clickResult=freshLinks[0].onclick({preventDefault(){prevented=true}});
+ assert.equal(prevented,true,"Walking link must recheck freshness if stop data ages after rendering");
+ assert.equal(clickResult,false);
+ assert.match(freshWalk.get("planStatus").textContent,/no longer current/);
+ stops.downloaded_utc=savedStopStamp;
+ console.log("PASS: fresh itinerary retains map links and guards stale click-time coordinates");
  // Both files can be individually recent but represent different GTFS refresh generations.
  const savedJourneyStamp=journeys.downloaded_utc;
  journeys.downloaded_utc="2026-10-25T10:57:50Z"; // Synthetic 48-hour mismatch, still within the seven-day age limit.
