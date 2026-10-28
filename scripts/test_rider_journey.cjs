@@ -27,7 +27,7 @@ function syntheticTransfer(secondDeparture="09:10:00",exceptions=[],uncertainty=
  assert.ok(preInterchange,"Conway fixture stop for estimated departure absent");
  const firstStops=uncertainty==="arrival"?[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"",dep:""},{stop:origin.id,arr:"09:00:00",dep:"09:00:00"}]:[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"09:00:00",dep:"09:00:00"}];
  const secondStops=uncertainty==="departure"?[{stop:preInterchange.id,arr:"08:55:00",dep:"08:55:00"},{stop:interchange.id,arr:"",dep:""},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}]:[{stop:interchange.id,arr:secondDeparture,dep:secondDeparture},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}];
- return {source:"synthetic regression only",calendar:[{service_id:service,start_date:"20260101",end_date:"20261231",monday:"1",tuesday:"1",wednesday:"1",thursday:"1",friday:"1",saturday:"1",sunday:"1"}],exceptions,trips:[
+ return {source:"synthetic regression only",downloaded_utc:"2026-10-27T10:57:50Z",calendar:[{service_id:service,start_date:"20260101",end_date:"20261231",monday:"1",tuesday:"1",wednesday:"1",thursday:"1",friday:"1",saturday:"1",sunday:"1"}],exceptions,trips:[
   {id:"QA-A",route:"TEST ROUTE A",service,stops:firstStops},
   {id:"QA-B",route:"TEST ROUTE B",service,stops:secondStops}
  ]};
