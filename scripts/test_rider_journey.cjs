@@ -372,7 +372,10 @@ async function main(){
  await distant.click("yesDestination");
  assert.match(distant.get("planStatus").textContent,/last stop is [0-9]+ meters straight-line/);
  assert.equal(distant.get("guideStart").disabled,true);
- console.log("PASS: synthetic distant final walk blocks guided trip");
+ const distantWalkingLinks=distant.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALK|WALKING ROUTE/.test(x.textContent));
+ assert.equal(distantWalkingLinks.length,0,"Do not offer walking-map links for an itinerary with an unconfirmed distant final leg");
+ assert.ok(distant.get("planSteps").children.some(x=>/Walking map links are disabled because the final stop/.test(x.textContent)),"Explain why walking links are withheld");
+ console.log("PASS: synthetic distant final walk blocks guided trip and both walking-map links");
  const ambiguous=boot();await ambiguous.settle();await ambiguous.click("locate");await ambiguous.settle();await ambiguous.click("yesLocation");await ambiguous.click("goDestination");
  ambiguous.get("destinationInput").value="Walmart";await ambiguous.click("findTrip");
  assert.equal(ambiguous.state().screen,"searchResults");
