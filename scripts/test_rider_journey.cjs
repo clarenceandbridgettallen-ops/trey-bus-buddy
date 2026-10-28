@@ -258,6 +258,7 @@ async function main(){
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
+ await transfer.click("nextInstruction"); // After TRANSFER, inspect BOARD BUS 2.
  assert.match(transfer.get("stepBody").textContent,/toward Andrews around/,"Valid headsign must be trimmed before being spoken");
  console.log("PASS: whitespace GTFS headsign fallback and trimmed destination sign");
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
