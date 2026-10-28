@@ -116,6 +116,16 @@ async function main(){
  assert.equal(staleStopsOnly.get("guideStart").disabled,true,"Fresh journeys cannot mask stale stop coordinates");
  assert.match(staleStopsOnly.get("dataStatus").textContent,/stored stops or schedules are older than 7 days/);
  stops.downloaded_utc=savedStopStamp;
+ // Both files can be individually recent but represent different GTFS refresh generations.
+ const savedJourneyStamp=journeys.downloaded_utc;
+ journeys.downloaded_utc="2026-10-25T10:57:50Z"; // Synthetic 48-hour mismatch, still within the seven-day age limit.
+ const mismatchedSnapshots=boot();await mismatchedSnapshots.settle();await selectAndrews(mismatchedSnapshots);
+ assert.equal(mismatchedSnapshots.get("guideStart").disabled,true,"Different recent GTFS snapshot generations must not authorize spoken boarding");
+ assert.match(mismatchedSnapshots.get("dataStatus").textContent,/refreshed more than 24 hours apart/);
+ assert.match(mismatchedSnapshots.get("planStatus").textContent,/snapshot times differ by more than 24 hours/);
+ assert.match(mismatchedSnapshots.get("planFare").textContent,/bus/,"Mismatched snapshots may retain an itinerary preview");
+ journeys.downloaded_utc=savedJourneyStamp;
+ console.log("PASS: mismatched stop and schedule refresh timestamps disable guided trip without hiding preview");
  console.log("PASS: old schedule or stop snapshots keep preview but disable spoken boarding");
  console.log("PASS: stored GTFS older than seven days triggers visible service-freshness warning");
  console.log("PASS: visible GTFS snapshot freshness and non-live warning");
