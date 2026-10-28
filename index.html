@@ -49,6 +49,13 @@ function transitDataTooOld(){
  if(Math.abs(stamps[0]-stamps[1])>86400000)return true;
  return stamps.some(time=>{const ageDays=(Date.now()-time)/86400000;return ageDays>7||ageDays< -1});
 }
+// Nearest-stop walking links depend on the stop inventory even when no timetable is loaded.
+function stopInventoryTooOld(){
+ const time=new Date(official?.downloaded_utc||"").getTime();
+ if(!official?.stops||!Number.isFinite(time))return true;
+ const ageDays=(Date.now()-time)/86400000;
+ return ageDays>7||ageDays< -1;
+}
 function refreshDataStatus(){
  if(!official?.stops){reportDataStatus("Coast RTA stop data unavailable. Do not rely on this app for boarding stops or live arrivals.");return}
  const tripStatus=journeys?.trips?journeys.trips.length+" scheduled trips":scheduleLoadState==="failed"?"trip schedules unavailable":"trip schedules loading";
@@ -126,8 +133,16 @@ async function findNearest(){
  }
  presentStop(0);
 }
-function presentStop(i){selected=stops[i];if(!selected)return fail("No stop selected.");$("stopName").textContent=selected.name;$("stopDetails").textContent="About "+selected.meters+" meters STRAIGHT-LINE (not a verified walk) · "+source+(selected.routes.length?" · "+selected.routes.slice(0,2).join(", "):"")+". Stop ID: "+selected.id;show("nearest");speak("I found a mapped bus stop. "+selected.name+", official stop ID "+selected.id+". The walking route is not verified. Open walking directions to check crossings and the correct side of the road. The stop ID might not appear on the physical sign.")}
-$("yesLocation").onclick=()=>{show("chooseGoal");speak("Where are you going? Nearest bus stop, or enter your destination?")};$("goNearest").onclick=findNearest;$("goDestination").onclick=()=>{show("destination");speak("Tell me where you want to go. Type or use your keyboard microphone.")};$("chooseStop").onclick=()=>{$("walkStop").textContent=selected.name+" · official stop ID "+selected.id;$("walkLink").href="https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(pos.lat+","+pos.lon)+"&destination="+encodeURIComponent(selected.lat+","+selected.lon)+"&travelmode=walking";show("walk");speak("Ready to walk to "+selected.name+", official stop ID "+selected.id+"? Tap open walking directions. Check the correct boarding side.")};
+function presentStop(i){
+ selected=stops[i];if(!selected)return fail("No stop selected.");
+ const stale=stopInventoryTooOld();
+ $("chooseStop").disabled=stale;
+ $("stopName").textContent=selected.name;
+ $("stopDetails").textContent="About "+selected.meters+" meters STRAIGHT-LINE (not a verified walk) · "+source+(selected.routes.length?" · "+selected.routes.slice(0,2).join(", "):"")+". Stop ID: "+selected.id+(stale?" WARNING: Stored stop locations are stale, future-dated, or undated. Walking directions are disabled. Confirm the stop with Coast RTA at 843-488-0865.":"");
+ show("nearest");
+ speak(stale?"The mapped stop inventory is not current. Walking directions are disabled. Confirm this stop with Coast RTA before traveling.":"I found a mapped bus stop. "+selected.name+", official stop ID "+selected.id+". The walking route is not verified. Open walking directions to check crossings and the correct side of the road. The stop ID might not appear on the physical sign.");
+}
+$("yesLocation").onclick=()=>{show("chooseGoal");speak("Where are you going? Nearest bus stop, or enter your destination?")};$("goNearest").onclick=findNearest;$("goDestination").onclick=()=>{show("destination");speak("Tell me where you want to go. Type or use your keyboard microphone.")};$("chooseStop").onclick=()=>{if(stopInventoryTooOld()){$("chooseStop").disabled=true;$("stopDetails").textContent+=" Stop inventory is no longer current; reload and confirm with Coast RTA.";return}$("walkStop").textContent=selected.name" · official stop ID "+selected.id;$("walkLink").href="https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(pos.lat+","+pos.lon)+"&destination="+encodeURIComponent(selected.lat+","+selected.lon)+"&travelmode=walking";show("walk");speak("Ready to walk to "+selected.name+", official stop ID "+selected.id+"? Tap open walking directions. Check the correct boarding side.")};
 $("differentStop").onclick=()=>{const c=$("stopOptions");c.replaceChildren();stops.slice(0,10).forEach((s,i)=>{const b=document.createElement("button");b.textContent=(i+1)+". "+s.name+" · stop ID "+s.id+" · "+s.meters+" meters straight-line";b.onclick=()=>presentStop(i);c.append(b)});show("other")};
 $("askDestination").onclick=()=>show("destination");
 function placeLabel(a){return [a.housenumber,a.street,a.city,a.state,a.postcode].filter(Boolean).join(" ")}
