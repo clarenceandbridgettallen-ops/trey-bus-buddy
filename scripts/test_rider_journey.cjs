@@ -262,6 +262,30 @@ async function main(){
  assert.match(transfer.get("stepBody").textContent,/toward Andrews around/,"Valid headsign must be trimmed before being spoken");
  console.log("PASS: whitespace GTFS headsign fallback and trimmed destination sign");
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
+
+ // A second boarding deadline must be checked before announcing the transfer
+ // and again while the transfer or second boarding instruction is on screen.
+ const missedTransfer=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await missedTransfer.settle();await selectAndrews(missedTransfer);
+ await missedTransfer.click("guideStart");await missedTransfer.click("nextInstruction");await missedTransfer.click("nextInstruction"); // GET OFF first bus
+ missedTransfer.setInstant("2026-10-27T13:11:00Z"); // 9:11 AM EDT, after synthetic 9:10 transfer departure
+ await missedTransfer.click("nextInstruction");
+ assert.equal(missedTransfer.state().screen,"itinerary","NEXT must not announce a transfer after its scheduled boarding time passed");
+ assert.match(missedTransfer.get("planStatus").textContent,/next scheduled boarding departure has passed while guidance was open/);
+ console.log("PASS: NEXT blocks entry to a transfer step after the second bus departure");
+ const missedTransferSpeech=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await missedTransferSpeech.settle();await selectAndrews(missedTransferSpeech);
+ await missedTransferSpeech.click("guideStart");for(let i=0;i<3;i++)await missedTransferSpeech.click("nextInstruction"); // TRANSFER
+ missedTransferSpeech.setInstant("2026-10-27T13:11:00Z");
+ await missedTransferSpeech.click("readInstruction");
+ assert.equal(missedTransferSpeech.state().screen,"itinerary","READ TO ME must not repeat a transfer instruction after its bus departed");
+ assert.match(missedTransferSpeech.get("planStatus").textContent,/next scheduled boarding departure has passed while guidance was open/);
+ console.log("PASS: READ TO ME blocks expired transfer instructions");
+ const missedSecondBoard=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await missedSecondBoard.settle();await selectAndrews(missedSecondBoard);
+ await missedSecondBoard.click("guideStart");for(let i=0;i<4;i++)await missedSecondBoard.click("nextInstruction"); // BOARD BUS 2
+ missedSecondBoard.setInstant("2026-10-27T13:11:00Z");
+ await missedSecondBoard.click("nextInstruction");
+ assert.equal(missedSecondBoard.state().screen,"itinerary","NEXT must not continue an expired second boarding step");
+ console.log("PASS: second boarding instruction expires when its scheduled departure passes");
+
  const estimatedBoard=boot("2026-10-27T11:00:00Z",null,syntheticEstimatedBoarding());await estimatedBoard.settle();await selectAndrews(estimatedBoard);
  assert.match(estimatedBoard.get("planFare").textContent,/^1 bus/,"Keep possible itinerary visible as an unverified preview");
  assert.match(estimatedBoard.get("planStatus").textContent,/first boarding time is interpolated/i);
