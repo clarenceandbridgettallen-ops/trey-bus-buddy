@@ -3,8 +3,18 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict"),path=require("node:path");
 const root=path.resolve(__dirname,"..");
 const html=fs.readFileSync(path.join(root,"index.html"),"utf8");
-const stops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
-const journeys=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-journeys.json"),"utf8"));
+const committedStops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
+const committedJourneys=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-journeys.json"),"utf8"));
+// Test clocks are fixed in October 2026. Keep fixture timestamps fixed as well,
+// so tomorrow's official GTFS refresh cannot turn a simulated fresh snapshot into
+// a >24-hour future-dated one and falsely fail otherwise valid rider regressions.
+const stopStamp=Date.parse(committedStops.downloaded_utc),tripStamp=Date.parse(committedJourneys.downloaded_utc);
+assert.ok(Number.isFinite(stopStamp)&&Number.isFinite(tripStamp),"Committed GTFS snapshots must have valid timestamps");
+assert.ok(Math.abs(stopStamp-tripStamp)<=86400000,"Committed stop and trip snapshots must be within 24 hours");
+const stops=structuredClone(committedStops),journeys=structuredClone(committedJourneys);
+stops.downloaded_utc="2026-10-27T10:57:50Z";
+journeys.downloaded_utc="2026-10-27T10:57:50Z";
+console.log("PASS: committed stop/trip timestamp coherence and deterministic QA fixture dates");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 // Two current official Coast RTA pages conflict: contactless-fare-payment says 5–7 PM,
 // how-to-ride says 3–6 PM. Do not assert either is the authoritative peak window.
@@ -111,7 +121,7 @@ async function main(){
  assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/);
  assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
  const dateLabel=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",year:"numeric"}).format(new Date(journeys.downloaded_utc));
- assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match committed GTFS fixture");
+ assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match deterministic QA fixture");
  assert.match(a.get("dataStatus").textContent,/Not live arrivals; walking routes unverified/);
  assert.doesNotMatch(a.get("dataStatus").textContent,/WARNING: stored schedules are older than 7 days/,"Fresh snapshot must not be marked stale");
  const oldSnapshot=boot("2026-11-10T12:00:00Z");await oldSnapshot.settle();
