@@ -201,6 +201,24 @@ async function main(){
  assert.equal(expired.get("guideStart").disabled,true);
  assert.match(expired.get("planStatus").textContent,/No reachable scheduled departures remain today/);
  console.log("PASS: starting an old itinerary rechecks time and blocks expired boarding");
+
+ const activeAged=boot();await activeAged.settle();await selectAndrews(activeAged);
+ await activeAged.click("guideStart");assert.equal(activeAged.state().screen,"guide");
+ activeAged.setInstant("2026-11-05T12:00:00Z"); // Synthetic age-out while spoken guidance is open.
+ await activeAged.click("nextInstruction");
+ assert.equal(activeAged.state().screen,"itinerary","Next must not continue instructions from stale GTFS");
+ assert.equal(activeAged.get("guideStart").disabled,true);
+ assert.match(activeAged.get("planStatus").textContent,/Guided instructions stopped because the stored Coast RTA data is no longer reliable/);
+ assert.ok(activeAged.spoken.some(s=>/Guided trip instructions stopped/.test(s)));
+ console.log("PASS: active spoken navigation stops when GTFS ages out before Next");
+ const midnightGuide=boot();await midnightGuide.settle();await selectAndrews(midnightGuide);
+ await midnightGuide.click("guideStart");assert.equal(midnightGuide.state().screen,"guide");
+ midnightGuide.setInstant("2026-10-28T11:00:00Z"); // New local transit service date, snapshots still fresh.
+ await midnightGuide.click("readInstruction");
+ assert.equal(midnightGuide.state().screen,"itinerary","Read-to-me must not continue prior-day directions");
+ assert.match(midnightGuide.get("planStatus").textContent,/Guided instructions stopped because the local transit service date changed/);
+ console.log("PASS: read-to-me stops at service-date rollover and requires itinerary review");
+
  const transfer=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await transfer.settle();await selectAndrews(transfer);
  assert.match(transfer.get("planFare").textContent,/^2 buses · 1 transfer · Estimated standard cash fare \$2\.00/);
  assert.equal(transfer.get("guideStart").disabled,false);
