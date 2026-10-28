@@ -435,6 +435,32 @@ async function main(){
  await later.click("guideStart");assert.equal(later.state().screen,"guide");
  await later.click("nextInstruction");assert.match(later.get("stepBody").textContent,/TEST LATER BOARDING/);
  console.log("PASS: later published boarding remains selectable after conservative screening");
+
+ // Duplicate labels are not interchangeable boarding points. These are real
+ // committed stop IDs, but the navigation interactions remain mocked.
+ const bucksportA=stops.stops.find(s=>s.id==="TL-651");
+ const bucksportB=stops.stops.find(s=>s.id==="TL-733");
+ assert.ok(bucksportA&&bucksportB&&bucksportA.name.trim()===bucksportB.name.trim(),"Bucksport same-name fixture missing");
+ const nameRisk=boot();await nameRisk.settle();await nameRisk.click("locate");await nameRisk.settle();
+ await nameRisk.click("yesLocation");
+ Object.assign(nameRisk.state().pos,{lat:bucksportA.lat,lon:bucksportA.lon});
+ await nameRisk.click("goNearest");
+ assert.equal(nameRisk.state().screen,"nearest");
+ assert.equal(nameRisk.get("stopName").textContent.trim(),"Bucksport Marina");
+ assert.match(nameRisk.get("stopDetails").textContent,/Another mapped Coast RTA stop shares this name more than 1 km away/);
+ assert.match(nameRisk.spoken.at(-1),/Confirm the official stop ID and exact location with Coast RTA/);
+ const andrewsA=stops.stops.find(s=>s.id==="TL-285");
+ const andrewsB=stops.stops.find(s=>s.id==="TL-940");
+ assert.ok(andrewsA&&andrewsB&&andrewsA.name===andrewsB.name,"Andrews boarding-side fixture missing");
+ const sideRisk=boot();await sideRisk.settle();await sideRisk.click("locate");await sideRisk.settle();
+ await sideRisk.click("yesLocation");
+ Object.assign(sideRisk.state().pos,{lat:andrewsA.lat,lon:andrewsA.lon});
+ await sideRisk.click("goNearest");
+ assert.match(sideRisk.get("stopDetails").textContent,/may have different boarding sides/);
+ assert.match(sideRisk.spoken.at(-1),/correct side with Coast RTA/);
+ const routeRisk=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await routeRisk.settle();await selectAndrews(routeRisk);
+ assert.ok(routeRisk.get("planSteps").children.some(p=>p.children?.some(n=>/Multiple mapped Coast RTA stops share this name/.test(n.textContent||""))),"Itinerary must disclose same-name alighting-stop ambiguity");
+ console.log("PASS: far-apart and nearby same-name stops trigger visible and spoken stop-ID/boarding-side cautions (mocked)");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
