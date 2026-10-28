@@ -28,8 +28,8 @@ function syntheticTransfer(secondDeparture="09:10:00",exceptions=[],uncertainty=
  const firstStops=uncertainty==="arrival"?[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"",dep:""},{stop:origin.id,arr:"09:00:00",dep:"09:00:00"}]:[{stop:origin.id,arr:"08:30:00",dep:"08:30:00"},{stop:interchange.id,arr:"09:00:00",dep:"09:00:00"}];
  const secondStops=uncertainty==="departure"?[{stop:preInterchange.id,arr:"08:55:00",dep:"08:55:00"},{stop:interchange.id,arr:"",dep:""},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}]:[{stop:interchange.id,arr:secondDeparture,dep:secondDeparture},{stop:target.id,arr:"10:00:00",dep:"10:00:00"}];
  return {source:"synthetic regression only",downloaded_utc:"2026-10-27T10:57:50Z",calendar:[{service_id:service,start_date:"20260101",end_date:"20261231",monday:"1",tuesday:"1",wednesday:"1",thursday:"1",friday:"1",saturday:"1",sunday:"1"}],exceptions,trips:[
-  {id:"QA-A",route:"TEST ROUTE A",service,stops:firstStops},
-  {id:"QA-B",route:"TEST ROUTE B",service,stops:secondStops}
+  {id:"QA-A",route:"TEST ROUTE A",headsign:" ",service,stops:firstStops},
+  {id:"QA-B",route:"TEST ROUTE B",headsign:"  Andrews  ",service,stops:secondStops}
  ]};
 }
 function syntheticEstimatedArrival(){
@@ -243,10 +243,13 @@ async function main(){
  assert.ok(transfer.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,/TEST ROUTE A/);assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+origin.id));
+ assert.match(transfer.get("stepBody").textContent,/official trip destination sign unavailable/,"Whitespace-only GTFS headsign must not be announced as a destination");
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
  await transfer.click("nextInstruction");
  assert.match(transfer.get("stepBody").textContent,new RegExp("official stop ID "+interchange.id));
+ assert.match(transfer.get("stepBody").textContent,/toward Andrews around/,"Valid headsign must be trimmed before being spoken");
+ console.log("PASS: whitespace GTFS headsign fallback and trimmed destination sign");
  console.log("PASS: synthetic two-bus journey, one transfer, fare and mocked speech");
  const estimatedBoard=boot("2026-10-27T11:00:00Z",null,syntheticEstimatedBoarding());await estimatedBoard.settle();await selectAndrews(estimatedBoard);
  assert.match(estimatedBoard.get("planFare").textContent,/^1 bus/,"Keep possible itinerary visible as an unverified preview");
