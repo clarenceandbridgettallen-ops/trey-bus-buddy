@@ -55,6 +55,7 @@ class El{
  append(...x){this.children.push(...x)}
  replaceChildren(...x){this.children=[...x]}
  setAttribute(){}
+ removeAttribute(name){if(name==="href")delete this.href}
  focus(){}
 }
 function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,fault=null){
@@ -284,6 +285,15 @@ async function main(){
  assert.ok(nearby.spoken.some(s=>/Ready to walk to .*official stop ID TL-/.test(s)),"Walk-start spoken guidance must include stop ID");
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
+ nearby.setInstant("2026-11-05T12:00:00Z"); // Simulate the stored stop inventory aging while the walk screen remains open.
+ let blockedWalk=false;
+ const blockedResult=nearby.get("walkLink").onclick({preventDefault(){blockedWalk=true}});
+ assert.equal(blockedWalk,true,"Opening a displayed walking link must recheck stop freshness");
+ assert.equal(blockedResult,false,"Stale walking-map navigation must be cancelled");
+ assert.equal(nearby.get("walkLink").href,undefined,"Stale walking-map link must lose its destination");
+ assert.match(nearby.get("walkStop").textContent,/Walking directions are disabled/);
+ assert.ok(nearby.spoken.some(s=>/Stop locations are no longer current/i.test(s)));
+ console.log("PASS: nearest-stop walking map link rechecks freshness at click time");
  const distant=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await distant.settle();await selectAndrews(distant);
  distant.state().destination.lat=target.lat+0.03; // Deliberately synthetic ~3.3 km final walk, not a real address.
  await distant.click("yesDestination");
