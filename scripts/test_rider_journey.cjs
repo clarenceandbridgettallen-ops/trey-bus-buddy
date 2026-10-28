@@ -188,6 +188,8 @@ async function main(){
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
  assert.equal(short.get("guideStart").disabled,true);
  assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
+  assert.match(short.get("planStatus").textContent,/currently checks direct buses and journeys with one transfer only/,"A failed search must disclose the one-transfer routing limit");
+  assert.match(short.get("planStatus").textContent,/does not mean Coast RTA has no service/,"A failed search must not be mistaken for proof of no service");
  console.log("PASS: synthetic transfer under five minutes is rejected");
  const uncertainArrival=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[],"arrival"));await uncertainArrival.settle();await selectAndrews(uncertainArrival);
  assert.equal(uncertainArrival.get("guideStart").disabled,true,"Interpolated transfer arrival must not be advertised as a confirmed connection");
