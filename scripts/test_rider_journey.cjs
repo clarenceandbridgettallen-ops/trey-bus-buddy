@@ -211,6 +211,23 @@ async function main(){
  assert.match(activeAged.get("planStatus").textContent,/Guided instructions stopped because the stored Coast RTA data is no longer reliable/);
  assert.ok(activeAged.spoken.some(s=>/Guided trip instructions stopped/.test(s)));
  console.log("PASS: active spoken navigation stops when GTFS ages out before Next");
+ const activeMissed=boot();await activeMissed.settle();await selectAndrews(activeMissed);
+ await activeMissed.click("guideStart");assert.equal(activeMissed.state().screen,"guide");
+ activeMissed.setInstant("2026-10-27T12:31:00Z"); // 8:31 AM EDT, after the published 8:30 AM first boarding.
+ await activeMissed.click("nextInstruction");
+ assert.equal(activeMissed.state().screen,"itinerary","NEXT must not instruct boarding after the first scheduled departure has passed");
+ assert.match(activeMissed.get("planStatus").textContent,/first scheduled boarding departure has passed while guidance was open/);
+ assert.match(activeMissed.get("planStatus").textContent,/cannot verify whether you boarded/);
+ console.log("PASS: NEXT halts unconfirmed pre-boarding guidance after scheduled departure passes");
+ const activeMissedSpeech=boot();await activeMissedSpeech.settle();await selectAndrews(activeMissedSpeech);
+ await activeMissedSpeech.click("guideStart");await activeMissedSpeech.click("nextInstruction");
+ assert.equal(activeMissedSpeech.state().screen,"guide");
+ activeMissedSpeech.setInstant("2026-10-27T12:31:00Z");
+ await activeMissedSpeech.click("readInstruction");
+ assert.equal(activeMissedSpeech.state().screen,"itinerary","READ TO ME must not repeat an expired boarding instruction");
+ assert.match(activeMissedSpeech.get("planStatus").textContent,/first scheduled boarding departure has passed while guidance was open/);
+ console.log("PASS: READ TO ME halts expired boarding guidance without inventing live status");
+
  const midnightGuide=boot();await midnightGuide.settle();await selectAndrews(midnightGuide);
  await midnightGuide.click("guideStart");assert.equal(midnightGuide.state().screen,"guide");
  midnightGuide.setInstant("2026-10-28T11:00:00Z"); // New local transit service date, snapshots still fresh.
