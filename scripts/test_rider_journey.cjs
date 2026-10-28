@@ -32,6 +32,15 @@ function syntheticTransfer(secondDeparture="09:10:00",exceptions=[],uncertainty=
   {id:"QA-B",route:"TEST ROUTE B",service,stops:secondStops}
  ]};
 }
+function syntheticEstimatedArrival(){
+ const sample=syntheticTransfer();
+ sample.trips=[{id:"QA-ESTIMATED-ARRIVAL",route:"TEST ESTIMATED ARRIVAL",service:"QA-TEST",stops:[
+  {stop:origin.id,arr:"08:30:00",dep:"08:30:00"},
+  {stop:target.id,arr:"",dep:""},
+  {stop:interchange.id,arr:"09:30:00",dep:"09:30:00"}
+ ]}];
+ return sample;
+}
 function syntheticEstimatedBoarding(){
  const sample=syntheticTransfer();
  sample.trips=[{id:"QA-ESTIMATED-BOARD",route:"TEST ESTIMATED BOARD",service:"QA-TEST",stops:[
@@ -185,6 +194,21 @@ async function main(){
  assert.equal(estimatedBoard.get("guideStart").disabled,true,"Unverified first departure must block spoken navigation");
  await estimatedBoard.click("guideStart");assert.equal(estimatedBoard.state().screen,"itinerary");
  console.log("PASS: estimated first boarding departure remains a preview and cannot start spoken guidance");
+ const estimatedArrival=boot("2026-10-27T11:00:00Z",null,syntheticEstimatedArrival());await estimatedArrival.settle();await selectAndrews(estimatedArrival);
+ assert.match(estimatedArrival.get("planFare").textContent,/^1 bus/,"Keep uncertain arrival visible as a preview");
+ assert.match(estimatedArrival.get("planStatus").textContent,/boarding or alighting time is interpolated/i);
+ assert.equal(estimatedArrival.get("guideStart").disabled,true,"Unpublished destination arrival must block spoken guidance");
+ await estimatedArrival.click("guideStart");assert.equal(estimatedArrival.state().screen,"itinerary");
+ const publishedArrival=syntheticEstimatedArrival();
+ publishedArrival.trips.push({id:"QA-PUBLISHED-ARRIVAL",route:"TEST PUBLISHED ARRIVAL",service:"QA-TEST",stops:[
+  {stop:origin.id,arr:"08:40:00",dep:"08:40:00"},
+  {stop:target.id,arr:"09:40:00",dep:"09:40:00"}
+ ]});
+ const safeArrival=boot("2026-10-27T11:00:00Z",null,publishedArrival);await safeArrival.settle();await selectAndrews(safeArrival);
+ assert.equal(safeArrival.get("guideStart").disabled,false,"Prefer published arrival over earlier interpolated alighting time");
+ await safeArrival.click("guideStart");assert.equal(safeArrival.state().screen,"guide");
+ await safeArrival.click("nextInstruction");assert.match(safeArrival.get("stepBody").textContent,/TEST PUBLISHED ARRIVAL/);
+ console.log("PASS: interpolated arrival blocks speech and published-time alternative wins");
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
  assert.equal(short.get("guideStart").disabled,true);
  assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
