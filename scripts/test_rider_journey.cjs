@@ -124,6 +124,15 @@ async function main(){
  const staleStopsOnly=boot();await staleStopsOnly.settle();await selectAndrews(staleStopsOnly);
  assert.equal(staleStopsOnly.get("guideStart").disabled,true,"Fresh journeys cannot mask stale stop coordinates");
  assert.match(staleStopsOnly.get("dataStatus").textContent,/stored stops or schedules are older than 7 days/);
+ await staleStopsOnly.click("home");await staleStopsOnly.click("locate");await staleStopsOnly.settle();
+ await staleStopsOnly.click("yesLocation");await staleStopsOnly.click("goNearest");
+ assert.equal(staleStopsOnly.state().screen,"nearest","Keep stale mapped-stop preview visible for verification");
+ assert.equal(staleStopsOnly.get("chooseStop").disabled,true,"Stale stop coordinates must not open walking directions");
+ assert.match(staleStopsOnly.get("stopDetails").textContent,/Walking directions are disabled/);
+ await staleStopsOnly.click("chooseStop"); // Mock invokes the handler even for a disabled button.
+ assert.equal(staleStopsOnly.state().screen,"nearest","Guard the walking-link handler if stale data changes after rendering");
+ assert.ok(staleStopsOnly.spoken.some(s=>/mapped stop inventory is not current/i.test(s)),"Spoken warning must not encourage walking to a stale stop");
+ console.log("PASS: stale stop inventory blocks nearest-stop walking link and warns in speech");
  stops.downloaded_utc=savedStopStamp;
  // Both files can be individually recent but represent different GTFS refresh generations.
  const savedJourneyStamp=journeys.downloaded_utc;
