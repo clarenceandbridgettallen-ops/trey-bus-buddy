@@ -46,7 +46,7 @@ class FrequencyWindowTests(unittest.TestCase):
 
     def test_invalid_or_missing_offset_rejected(self):
         data = stops(); data[1]['departure_time'] = 'not-time'
-        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'missing_or_invalid_stop_offset')
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'malformed_stop_time')
 
     def test_exact_times_one_still_not_claimed_verified(self):
         result = stop_window(freq(exact_times='1'), stops(), 'B')
