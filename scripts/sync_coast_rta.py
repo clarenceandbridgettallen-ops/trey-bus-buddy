@@ -63,7 +63,7 @@ def main():
    if tid in trip_details:
     journey_trips.setdefault(tid,[]).append({"stop":t.get("stop_id",""),"seq":int(t.get("stop_sequence") or 0),"arr":t.get("arrival_time",""),"dep":t.get("departure_time","")})
   journey=[{"id":tid,**trip_details[tid],"stops":sorted(rows,key=lambda x:x["seq"])} for tid,rows in journey_trips.items() if len(rows)>=2]
-  ROOT.joinpath("data/coast-rta-journeys.json").write_text(json.dumps({"source":FEED,"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"trips":journey,"calendar":calendars,"exceptions":exceptions},ensure_ascii=False,separators=(",",":")))
+  ROOT.joinpath("data/coast-rta-journeys.json").write_text(json.dumps({"source":FEED,"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"trips":journey,"calendar":calendars,"exceptions":exceptions,"frequency_coverage":{"status":"no_frequency_rows","row_count":0,"file_present":frequency_coverage["file_present"]}},ensure_ascii=False,separators=(",",":")))
   stop_routes={}
   for t in times:
    route=trip_routes.get(t.get("trip_id"))
