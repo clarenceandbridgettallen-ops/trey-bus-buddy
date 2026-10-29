@@ -56,6 +56,24 @@ class FrequencyCoverageTests(unittest.TestCase):
                 {"trip_id":"a","start_time":"08:30:00","end_time":"10:00:00","headway_secs":"600"}]
         self.assertEqual(inspect_frequency_windows(rows, {"a"})["overlap_count"], 1)
 
+    def test_nested_frequency_windows_report_all_overlapping_pairs(self):
+        # The first interval contains both later windows, which do not overlap each other.
+        rows = [
+            {"trip_id": "a", "start_time": "08:00:00", "end_time": "12:00:00", "headway_secs": "900"},
+            {"trip_id": "a", "start_time": "09:00:00", "end_time": "10:00:00", "headway_secs": "900"},
+            {"trip_id": "a", "start_time": "10:00:00", "end_time": "11:00:00", "headway_secs": "900"},
+        ]
+        report = inspect_frequency_windows(rows, {"a"})
+        self.assertEqual(report["overlap_count"], 2)
+        self.assertEqual(report["overlapping_trip_windows"], [["a", 1, 2], ["a", 1, 3]])
+
+    def test_touching_frequency_windows_are_not_overlap(self):
+        rows = [
+            {"trip_id": "a", "start_time": "08:00:00", "end_time": "09:00:00", "headway_secs": "900"},
+            {"trip_id": "a", "start_time": "09:00:00", "end_time": "10:00:00", "headway_secs": "900"},
+        ]
+        self.assertEqual(inspect_frequency_windows(rows, {"a"})["overlap_count"], 0)
+
     def test_frequency_route_coverage_groups_without_inventing_departures(self):
         trips = {
             "t1": {"route": "Rt 14 Georgetown / Andrews", "service": "weekday"},
