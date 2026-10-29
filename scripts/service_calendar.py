@@ -39,17 +39,25 @@ def audit_frequency_service_date(frequencies, trips, calendar, exceptions, servi
     bad_exceptions = 0
     for row in exceptions:
         sid = str(row.get('service_id', '')).strip()
+        kind = str(row.get('exception_type', '')).strip()
         try:
             exception_day = datetime.strptime(str(row.get('date', '')), '%Y%m%d').date()
-            kind = str(row.get('exception_type', '')).strip()
-            if not sid or kind not in ('1','2'):
-                raise ValueError('invalid calendar exception')
         except (ValueError, TypeError):
+            # Unknown date could apply to this service day; fail closed.
             bad_exceptions += 1
             if sid:
                 overrides[sid] = None
             continue
         if exception_day != day:
+            # An invalid exception for a known *other* date cannot cancel
+            # or activate today's otherwise valid weekly service.
+            if not sid or kind not in ('1', '2'):
+                bad_exceptions += 1
+            continue
+        if not sid or kind not in ('1', '2'):
+            bad_exceptions += 1
+            if sid:
+                overrides[sid] = None
             continue
         status = kind == '1'
         if sid in overrides and overrides[sid] != status:
