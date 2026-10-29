@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -39,6 +39,28 @@ class FrequencyCoverageTests(unittest.TestCase):
                 {"trip_id": "unknown-trip", "headway_secs": "600"}
             ], {"trip-a"})
 
+
+    def test_blank_exact_times_means_headway_not_unknown(self):
+        rows = [{"trip_id":"a","start_time":"08:00:00","end_time":"09:00:00","headway_secs":"900","exact_times":""}]
+        report = inspect_frequency_windows(rows, {"a"})
+        self.assertEqual(report["exact_times_modes"], {"0":1})
+        self.assertEqual(report["headway_secs_min"], 900)
+        self.assertEqual(report["invalid_row_count"], 0)
+
+    def test_service_day_times_past_midnight(self):
+        rows = [{"trip_id":"a","start_time":"23:00:00","end_time":"25:00:00","headway_secs":"600"}]
+        self.assertEqual(inspect_frequency_windows(rows, {"a"})["window_end_latest_secs"], 90000)
+
+    def test_overlapping_headway_windows_are_reported(self):
+        rows = [{"trip_id":"a","start_time":"08:00:00","end_time":"09:00:00","headway_secs":"600"},
+                {"trip_id":"a","start_time":"08:30:00","end_time":"10:00:00","headway_secs":"600"}]
+        self.assertEqual(inspect_frequency_windows(rows, {"a"})["overlap_count"], 1)
+
+    def test_invalid_windows_and_unknown_trip_are_reported(self):
+        rows = [{"trip_id":"missing","start_time":"10:00:00","end_time":"09:00:00","headway_secs":"0"}]
+        report = inspect_frequency_windows(rows, {"a"})
+        self.assertEqual(report["invalid_row_count"], 1)
+        self.assertEqual(report["unknown_trip_ids"], ["missing"])
 
 if __name__ == "__main__":
     unittest.main()
