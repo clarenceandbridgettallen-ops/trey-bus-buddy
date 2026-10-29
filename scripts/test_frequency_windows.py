@@ -1,5 +1,5 @@
 import unittest
-from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows
+from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows, has_bracketing_timepoints
 
 
 def freq(**changes):
@@ -180,6 +180,56 @@ class FrequencyWindowTests(unittest.TestCase):
         self.assertEqual(report['window_only_boarding_pairs'], 2)
         self.assertEqual(report['unknown_reasons']['untimed_approximate_stop_requires_interpolation'], 1)
         self.assertEqual(report['blocked_template_count'], 1)
+
+
+    def test_untimed_bracket_counts_do_not_publish_times(self):
+        data = [
+            {'trip_id':'t','stop_id':'A','stop_sequence':'1','departure_time':'08:00:00','timepoint':'1'},
+            {'trip_id':'t','stop_id':'B','stop_sequence':'2','departure_time':'','timepoint':'0'},
+            {'trip_id':'t','stop_id':'C','stop_sequence':'3','departure_time':'08:30:00','timepoint':'1'},
+        ]
+        report = audit_frequency_boarding_windows([freq()], data)
+        self.assertEqual(report['untimed_bracket_candidates_not_verified'], 1)
+        self.assertEqual(report['untimed_without_valid_brackets'], 0)
+        self.assertEqual(report['unknown_boarding_pairs'], 1)
+        self.assertFalse(report['transfers_verified'])
+        self.assertEqual(stop_window(freq(), data, 'B')['status'], 'unknown_do_not_navigate')
+
+    def test_untimed_terminal_without_later_anchor_not_bracketed(self):
+        data = stops()
+        data[1]['timepoint'] = '0'
+        data[1]['departure_time'] = ''
+        report = audit_frequency_boarding_windows([freq()], data)
+        self.assertEqual(report['untimed_bracket_candidates_not_verified'], 0)
+        self.assertEqual(report['untimed_without_valid_brackets'], 1)
+
+    def test_approximate_or_malformed_anchors_not_trusted(self):
+        data = [
+            {'stop_sequence':'1','departure_time':'08:00:00','timepoint':'0'},
+            {'stop_sequence':'2','departure_time':'','timepoint':'0'},
+            {'stop_sequence':'3','departure_time':'08:30:00','timepoint':'1'},
+        ]
+        self.assertFalse(has_bracketing_timepoints(data, 2))
+        data[0]['timepoint'] = '1'
+        data[2]['departure_time'] = '08:99:00'
+        self.assertFalse(has_bracketing_timepoints(data, 2))
+
+    def test_reverse_order_anchors_do_not_bracket(self):
+        data = [
+            {'stop_sequence':'1','departure_time':'09:00:00','timepoint':'1'},
+            {'stop_sequence':'2','departure_time':'','timepoint':'0'},
+            {'stop_sequence':'3','departure_time':'08:00:00','timepoint':'1'},
+        ]
+        self.assertFalse(has_bracketing_timepoints(data, 2))
+
+    def test_loop_visit_bracketed_by_sequence_not_stop_id(self):
+        data = [
+            {'stop_sequence':'1','stop_id':'A','departure_time':'08:00:00','timepoint':'1'},
+            {'stop_sequence':'2','stop_id':'B','departure_time':'','timepoint':'0'},
+            {'stop_sequence':'3','stop_id':'A','departure_time':'08:30:00','timepoint':'1'},
+        ]
+        self.assertTrue(has_bracketing_timepoints(data, 2))
+        self.assertFalse(has_bracketing_timepoints(data, 3))
 
 
 if __name__ == '__main__': unittest.main()
