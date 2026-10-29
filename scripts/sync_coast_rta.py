@@ -9,6 +9,25 @@ VEHICLES="https://coastrta.transloc.com/subscriptions/gtfsrt/vehicles.ashx"
 def get(url):
  req=urllib.request.Request(url,headers={"User-Agent":"BusBuddyStopAudit/1.0 (public GTFS research)"})
  with urllib.request.urlopen(req,timeout=35) as r:return r.read()
+def check_frequency_coverage(file_present, frequency_rows, trip_ids):
+ """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
+
+ A GTFS frequency row may represent many departures. Importing its template
+ trip as a single scheduled departure would mislead riders.
+ """
+ if frequency_rows:
+  referenced={str(row.get("trip_id","")).strip() for row in frequency_rows}
+  matched=len(referenced & set(trip_ids))
+  raise RuntimeError(
+   "Coast RTA GTFS frequencies.txt has "+str(len(frequency_rows))+
+   " rows referencing "+str(matched)+" known trip IDs. "
+   "Bus Buddy cannot yet expand exact_times=1 trips or safely represent "
+   "exact_times=0 headways. Refusing to replace the existing published "
+   "snapshot; inspect the official ZIP and implement frequency-aware routing first."
+  )
+ return {"file_present":bool(file_present),"row_count":0,
+         "status":"empty" if file_present else "absent"}
+
 def main():
  raw=get(FEED)
  if not zipfile.is_zipfile(io.BytesIO(raw)):raise RuntimeError("Coast RTA feed did not return a valid ZIP")
@@ -23,6 +42,8 @@ def main():
   routes={r["route_id"]:r.get("route_short_name","") or r.get("route_long_name","") for r in route_rows}
   trip_routes={t["trip_id"]:routes.get(t["route_id"],t["route_id"]) for t in trips}
   trip_details={t["trip_id"]:{"route":routes.get(t["route_id"],t["route_id"]),"service":t.get("service_id",""),"headsign":t.get("trip_headsign",""),"direction":t.get("direction_id","")} for t in trips}
+  frequency_coverage=check_frequency_coverage("frequencies.txt" in names,rows("frequencies.txt") if "frequencies.txt" in names else [],set(trip_details))
+  print("GTFS frequency coverage: "+json.dumps(frequency_coverage),flush=True)
   journey_trips={}
   for t in times:
    tid=t.get("trip_id","")
@@ -43,7 +64,7 @@ def main():
   if len(stops)<50:raise RuntimeError("Suspiciously small GTFS stop count: "+str(len(stops)))
   ROOT.joinpath("data").mkdir(exist_ok=True)
   ROOT.joinpath("data/coast-rta-stops.json").write_text(json.dumps({"source":FEED,"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"count":len(stops),"stops":stops},ensure_ascii=False,separators=(",",":")))
-  audit={"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"gtfs_stop_count":len(stops),"gtfs_routes":len(routes),"tracker_route_15s_url":TRACKER,"tracker_status":"not_checked","tracker_matching_stop_ids":[],"tracker_missing_stop_ids":[]}
+  audit={"downloaded_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),"frequency_coverage":frequency_coverage,"gtfs_stop_count":len(stops),"gtfs_routes":len(routes),"tracker_route_15s_url":TRACKER,"tracker_status":"not_checked","tracker_matching_stop_ids":[],"tracker_missing_stop_ids":[]}
   try:
    vehicle_data=get(VEHICLES)
    audit["vehicle_feed"]={"reachable":True,"bytes":len(vehicle_data),"protobuf_likely":bool(len(vehicle_data)>=32 and vehicle_data[:1]!=b"<" and any(b<9 or b>126 for b in vehicle_data[:128])),"decoded":False,"live_arrivals_verified":False}
