@@ -126,6 +126,21 @@ class FrequencyCoverageTests(unittest.TestCase):
         self.assertEqual(report["coordinate_changes_over_100m_count"], 0)
         self.assertEqual(report["name_changes_count"], 0)
 
+    def test_small_stop_coordinate_shift_is_visible_to_safety_audit(self):
+        # Roughly 22 meters north. This may change the correct crossing or boarding side.
+        official = [{"stop_id": "A", "stop_name": "A", "stop_lat": "33.7002", "stop_lon": "-79.0"}]
+        stored = [{"id": "A", "name": "A", "lat": 33.7, "lon": -79.0}]
+        report = compare_stop_inventory(official, stored)
+        self.assertEqual(report["coordinate_changes_over_10m_count"], 1)
+        self.assertEqual(report["coordinate_changes_over_100m_count"], 0)
+        self.assertEqual(report["coordinate_changes_over_10m"][0]["id"], "A")
+
+    def test_identical_stop_coordinates_have_no_shift_warning(self):
+        official = [{"stop_id": "A", "stop_name": "A", "stop_lat": "33.7", "stop_lon": "-79.0"}]
+        stored = [{"id": "A", "name": "A", "lat": 33.7, "lon": -79.0}]
+        report = compare_stop_inventory(official, stored)
+        self.assertEqual(report["coordinate_changes_over_10m_count"], 0)
+
     def test_frequency_template_audit_describes_first_timed_stop_without_guessing_departure(self):
         report = inspect_frequency_templates(
             [{"trip_id": "a"}],
