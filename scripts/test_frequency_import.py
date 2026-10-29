@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -79,6 +79,34 @@ class FrequencyCoverageTests(unittest.TestCase):
 
     def test_frequency_route_coverage_empty(self):
         self.assertEqual(summarize_frequency_routes([], {}), {"affected_routes": 0, "routes": []})
+
+    def test_frequency_template_audit_reports_missing_anchors_and_calendar(self):
+        rows = [{"trip_id": "a"}, {"trip_id": "b"}, {"trip_id": "unknown"}]
+        trips = {"a": {"service": "weekday"}, "b": {"service": "missing"}}
+        times = [
+            {"trip_id": "a", "stop_sequence": "1", "arrival_time": "", "departure_time": ""},
+            {"trip_id": "a", "stop_sequence": "2", "arrival_time": "08:30:00", "departure_time": "08:30:00"},
+            {"trip_id": "b", "stop_sequence": "1", "arrival_time": "", "departure_time": ""},
+            {"trip_id": "b", "stop_sequence": "2", "arrival_time": "", "departure_time": ""},
+        ]
+        report = inspect_frequency_templates(rows, trips, times, [{"service_id": "weekday"}], [])
+        self.assertEqual(report["known_frequency_trip_templates"], 2)
+        self.assertEqual(report["fewer_than_two_stops"]["count"], 0)
+        self.assertEqual(report["missing_first_stop_time"]["count"], 2)
+        self.assertEqual(report["all_stop_times_blank"]["example_trip_ids"], ["b"])
+        self.assertEqual(report["unresolved_calendar_service"]["example_trip_ids"], ["b"])
+
+    def test_frequency_template_audit_accepts_exception_only_service(self):
+        rows = [{"trip_id": "a"}]
+        trips = {"a": {"service": "holiday"}}
+        times = [
+            {"trip_id": "a", "stop_sequence": "2", "arrival_time": "09:00:00", "departure_time": "09:00:00"},
+            {"trip_id": "a", "stop_sequence": "1", "arrival_time": "08:00:00", "departure_time": "08:00:00"},
+        ]
+        report = inspect_frequency_templates(rows, trips, times, [], [{"service_id": "holiday"}])
+        self.assertEqual(report["missing_first_stop_time"]["count"], 0)
+        self.assertEqual(report["all_stop_times_blank"]["count"], 0)
+        self.assertEqual(report["unresolved_calendar_service"]["count"], 0)
 
     def test_invalid_windows_and_unknown_trip_are_reported(self):
         rows = [{"trip_id":"missing","start_time":"10:00:00","end_time":"09:00:00","headway_secs":"0"}]
