@@ -9,6 +9,9 @@ on:
       - scripts/test_service_calendar.py
       - scripts/frequency_windows.py
       - scripts/test_frequency_windows.py
+      - scripts/audit_journeys.py
+      - scripts/build_network.py
+      - scripts/test_network.py
       - .github/workflows/sync-stops.yml
   schedule:
     - cron: '23 10 * * *'
@@ -28,12 +31,12 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_service_calendar.py'
       - name: Test stop-level frequency windows (offline, no departure estimates)
         run: python -m unittest discover -s scripts -p 'test_frequency_windows.py'
+      - name: Audit currently published GTFS snapshot (offline; not fresh feed)
+        run: python scripts/audit_journeys.py
+      - name: Test directed network invariants (offline)
+        run: python -m unittest discover -s scripts -p 'test_network.py'
       - name: Download and validate Coast RTA GTFS
         run: python scripts/sync_coast_rta.py
-      - name: Validate GTFS references before publishing
-        run: python scripts/audit_journeys.py
-      - name: Test directed network invariants
-        run: python -m unittest discover -s scripts -p 'test_network.py'
       - name: Commit verified stop inventory and audit
         run: |
           git config user.name "github-actions[bot]"
