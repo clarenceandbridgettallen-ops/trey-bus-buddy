@@ -18,6 +18,19 @@ def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  if frequency_rows:
   referenced={str(row.get("trip_id","")).strip() for row in frequency_rows}
   matched=len(referenced & set(trip_ids))
+  modes={}
+  headways=[]
+  for row in frequency_rows:
+   mode=str(row.get("exact_times","")).strip() or "unspecified"
+   modes[mode]=modes.get(mode,0)+1
+   try:headways.append(int(row.get("headway_secs","")))
+   except (ValueError,TypeError):pass
+  diagnostic={"frequency_rows":len(frequency_rows),"unique_trip_ids":len(referenced),
+              "known_trip_ids":matched,"exact_times_modes":modes,
+              "headway_secs_min":min(headways) if headways else None,
+              "headway_secs_max":max(headways) if headways else None,
+              "example_trip_ids":sorted(referenced)[:5]}
+  print("GTFS FREQUENCY BLOCKER "+json.dumps(diagnostic,sort_keys=True),flush=True)
   raise RuntimeError(
    "Coast RTA GTFS frequencies.txt has "+str(len(frequency_rows))+
    " rows referencing "+str(matched)+" known trip IDs. "
