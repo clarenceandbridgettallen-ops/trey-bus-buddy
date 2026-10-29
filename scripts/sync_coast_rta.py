@@ -9,6 +9,40 @@ VEHICLES="https://coastrta.transloc.com/subscriptions/gtfsrt/vehicles.ashx"
 def get(url):
  req=urllib.request.Request(url,headers={"User-Agent":"BusBuddyStopAudit/1.0 (public GTFS research)"})
  with urllib.request.urlopen(req,timeout=35) as r:return r.read()
+def gtfs_seconds(value):
+ m=re.fullmatch(r'(\d+):([0-5]\d):([0-5]\d)',str(value or '').strip())
+ return (int(m.group(1))*3600+int(m.group(2))*60+int(m.group(3))) if m else None
+
+def inspect_frequency_windows(rows,trip_ids):
+ """Diagnostic only: validate headway windows without producing departure times."""
+ modes={};headways=[];intervals={};issues=[];missing=set();first=[];last=[]
+ for index,row in enumerate(rows,1):
+  trip=str(row.get('trip_id','')).strip()
+  mode=str(row.get('exact_times','')).strip() or '0'
+  modes[mode]=modes.get(mode,0)+1
+  if trip not in trip_ids:missing.add(trip)
+  start=gtfs_seconds(row.get('start_time'))
+  end=gtfs_seconds(row.get('end_time'))
+  try:headway=int(row.get('headway_secs',''))
+  except (ValueError,TypeError):headway=0
+  if mode not in ('0','1') or start is None or end is None or end<=start or headway<=0:
+   issues.append(index)
+   continue
+  headways.append(headway);first.append(start);last.append(end)
+  intervals.setdefault(trip,[]).append((start,end,index))
+ overlaps=[]
+ for trip,windows in intervals.items():
+  windows.sort()
+  for prior,current in zip(windows,windows[1:]):
+   if current[0]<prior[1]:overlaps.append([trip,prior[2],current[2]])
+ return {'exact_times_modes':modes,'headway_secs_min':min(headways) if headways else None,
+         'headway_secs_max':max(headways) if headways else None,
+         'window_start_earliest_secs':min(first) if first else None,
+         'window_end_latest_secs':max(last) if last else None,
+         'invalid_row_numbers':issues[:20], 'invalid_row_count':len(issues),
+         'overlapping_trip_windows':overlaps[:20], 'overlap_count':len(overlaps),
+         'unknown_trip_ids':sorted(missing)[:20], 'unknown_trip_count':len(missing)}
+
 def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
 
@@ -18,18 +52,9 @@ def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  if frequency_rows:
   referenced={str(row.get("trip_id","")).strip() for row in frequency_rows}
   matched=len(referenced & set(trip_ids))
-  modes={}
-  headways=[]
-  for row in frequency_rows:
-   mode=str(row.get("exact_times","")).strip() or "unspecified"
-   modes[mode]=modes.get(mode,0)+1
-   try:headways.append(int(row.get("headway_secs","")))
-   except (ValueError,TypeError):pass
   diagnostic={"frequency_rows":len(frequency_rows),"unique_trip_ids":len(referenced),
-              "known_trip_ids":matched,"exact_times_modes":modes,
-              "headway_secs_min":min(headways) if headways else None,
-              "headway_secs_max":max(headways) if headways else None,
-              "example_trip_ids":sorted(referenced)[:5]}
+              "known_trip_ids":matched,"example_trip_ids":sorted(referenced)[:5],
+              **inspect_frequency_windows(frequency_rows,set(trip_ids))}
   print("GTFS FREQUENCY BLOCKER "+json.dumps(diagnostic,sort_keys=True),flush=True)
   raise RuntimeError(
    "Coast RTA GTFS frequencies.txt has "+str(len(frequency_rows))+
