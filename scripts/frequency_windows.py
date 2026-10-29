@@ -150,7 +150,8 @@ def audit_frequency_anchor_order(frequencies, stop_times):
 
     Approximate timepoint=0 rows are excluded from anchor comparisons. Compare
     arrival with arrival and departure with departure in stop_sequence order;
-    also reject arrival later than departure at the same exact timepoint.
+    also reject a later exact arrival before an earlier exact departure, and
+    arrival later than departure at the same exact timepoint.
     Missing values are not guessed or treated as zero.
     """
     referenced = {str(row.get('trip_id', '')).strip() for row in frequencies}
@@ -161,6 +162,8 @@ def audit_frequency_anchor_order(frequencies, stop_times):
             by_trip.setdefault(trip, []).append(row)
     checked_pairs = 0
     reversed_pairs = 0
+    cross_event_pairs_checked = 0
+    backward_cross_event_pairs = 0
     reversed_dwell = 0
     invalid_times = 0
     invalid_sequences = 0
@@ -183,6 +186,7 @@ def audit_frequency_anchor_order(frequencies, stop_times):
             affected.add(trip)
             continue
         previous = {'arrival': None, 'departure': None}
+        previous_departure = None
         for row in ordered:
             timepoint = str(row.get('timepoint', '')).strip()
             if timepoint == '0':
@@ -209,6 +213,15 @@ def audit_frequency_anchor_order(frequencies, stop_times):
                         reversed_pairs += 1
                         affected.add(trip)
                 previous[event] = current
+            # Same-event monotonicity alone misses an impossible segment:
+            # earlier departure 08:30, later arrival 08:20, later departure 08:45.
+            if previous_departure is not None and 'arrival' in values:
+                cross_event_pairs_checked += 1
+                if values['arrival'] < previous_departure:
+                    backward_cross_event_pairs += 1
+                    affected.add(trip)
+            if 'departure' in values:
+                previous_departure = values['departure']
             if ('arrival' in values and 'departure' in values
                     and values['arrival'] > values['departure']):
                 reversed_dwell += 1
@@ -218,6 +231,8 @@ def audit_frequency_anchor_order(frequencies, stop_times):
         'frequency_trip_templates': len(referenced),
         'ordered_anchor_pairs_checked': checked_pairs,
         'backward_anchor_pairs': reversed_pairs,
+        'cross_event_pairs_checked': cross_event_pairs_checked,
+        'backward_cross_event_pairs': backward_cross_event_pairs,
         'arrival_after_departure_at_stop': reversed_dwell,
         'malformed_anchor_or_timepoint_rows': invalid_times,
         'invalid_sequence_templates': invalid_sequences,
