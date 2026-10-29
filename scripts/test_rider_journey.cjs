@@ -85,7 +85,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fixtureJourneys||journeys};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
-  if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>[]};
+  if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:[]};
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
@@ -461,6 +461,13 @@ async function main(){
  const routeRisk=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());await routeRisk.settle();await selectAndrews(routeRisk);
  assert.ok(routeRisk.get("planSteps").children.some(p=>p.children?.some(n=>/Multiple mapped Coast RTA stops share this name/.test(n.textContent||""))),"Itinerary must disclose same-name alighting-stop ambiguity");
  console.log("PASS: far-apart and nearby same-name stops trigger visible and spoken stop-ID/boarding-side cautions (mocked)");
+ const spacedName=boot();await spacedName.settle();await spacedName.click("locate");await spacedName.settle();await spacedName.click("yesLocation");await spacedName.click("goDestination");
+ spacedName.get("destinationInput").value="Belle Isle  Bistro";
+ await spacedName.click("findTrip");
+ assert.equal(spacedName.state().screen,"searchResults","Extra spaces in a typed business name must still trigger the known-address fallback");
+ assert.ok(spacedName.get("placeResults").children.length,"Known-address fallback must return a selectable, confirmable result");
+ assert.match(spacedName.get("placeResults").children[0].children[0].textContent,/Belle Isle Bistro/);
+ console.log("PASS: repeated spaces in typed Belle Isle Bistro still reach confirmable known-address fallback (mocked)");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
