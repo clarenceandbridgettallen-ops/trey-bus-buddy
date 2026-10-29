@@ -5,6 +5,8 @@ on:
     paths:
       - scripts/sync_coast_rta.py
       - scripts/test_frequency_import.py
+      - scripts/service_calendar.py
+      - scripts/test_service_calendar.py
       - .github/workflows/sync-stops.yml
   schedule:
     - cron: '23 10 * * *'
@@ -20,6 +22,8 @@ jobs:
           python-version: '3.12'
       - name: Test GTFS frequency safety guard (offline)
         run: python -m unittest discover -s scripts -p 'test_frequency_import.py'
+      - name: Test GTFS service calendar classification (offline)
+        run: python -m unittest discover -s scripts -p 'test_service_calendar.py'
       - name: Download and validate Coast RTA GTFS
         run: python scripts/sync_coast_rta.py
       - name: Validate GTFS references before publishing
