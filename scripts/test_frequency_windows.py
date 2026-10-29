@@ -42,7 +42,7 @@ class FrequencyWindowTests(unittest.TestCase):
 
     def test_duplicate_stop_id_blocks_ambiguous_loop(self):
         data = stops(); data.append(dict(data[1], stop_sequence='3'))
-        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'missing_or_ambiguous_stop_id')
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'repeated_stop_id_requires_stop_sequence')
 
     def test_invalid_or_missing_offset_rejected(self):
         data = stops(); data[1]['departure_time'] = 'not-time'
@@ -65,6 +65,59 @@ class FrequencyWindowTests(unittest.TestCase):
 
     def test_unknown_input_blocks_transfer(self):
         self.assertEqual(transfer_feasibility({'status':'unknown_do_not_navigate'}, {}, 600),'unknown_do_not_navigate')
+
+    def test_untimed_approximate_stop_is_not_malformed(self):
+        data = stops()
+        data[1]['timepoint'] = '0'
+        data[1]['departure_time'] = ''
+        result = stop_window(freq(), data, 'B')
+        self.assertEqual(result['reason'], 'untimed_approximate_stop_requires_interpolation')
+        self.assertEqual(result['status'], 'unknown_do_not_navigate')
+
+    def test_missing_exact_or_unspecified_stop_time_is_separate(self):
+        for timepoint in ('1', ''):
+            with self.subTest(timepoint=timepoint):
+                data = stops()
+                data[1]['timepoint'] = timepoint
+                data[1]['departure_time'] = ''
+                self.assertEqual(stop_window(freq(), data, 'B')['reason'],
+                                 'missing_required_or_unmarked_stop_time')
+
+    def test_malformed_time_distinguished_from_untimed(self):
+        data = stops()
+        data[1]['timepoint'] = '0'
+        data[1]['departure_time'] = '08:75:00'
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'malformed_stop_time')
+
+    def test_unknown_timepoint_is_not_trusted(self):
+        data = stops()
+        data[1]['timepoint'] = '9'
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'invalid_timepoint')
+
+    def test_estimated_time_is_labeled_approximate(self):
+        data = stops()
+        data[1]['timepoint'] = '0'
+        result = stop_window(freq(), data, 'B')
+        self.assertTrue(result['stop_time_approximate'])
+        self.assertFalse(result['timing_verified'])
+
+    def test_mismatched_trip_rows_do_not_create_windows(self):
+        data = stops()
+        data[1]['trip_id'] = 'another-trip'
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'], 'mismatched_trip_stop_times')
+
+    def test_missing_stop_id_distinguished_from_legitimate_loop(self):
+        self.assertEqual(stop_window(freq(), stops(), 'NOT-A-STOP')['reason'], 'missing_stop_id')
+
+    def test_audit_separates_untimed_and_malformed_counts(self):
+        data = stops()
+        data[0]['timepoint'] = '0'
+        data[0]['departure_time'] = '08:00:00'
+        data[1]['timepoint'] = '0'
+        data[1]['departure_time'] = ''
+        report = audit_frequency_boarding_windows([freq()], data)
+        self.assertEqual(report['unknown_reasons']['untimed_approximate_stop_requires_interpolation'], 1)
+        self.assertEqual(report['window_only_boarding_pairs'], 1)
 
     def test_missing_trip_stop_times_are_not_mistaken_for_coverage(self):
         report = audit_frequency_boarding_windows([freq()], [])
