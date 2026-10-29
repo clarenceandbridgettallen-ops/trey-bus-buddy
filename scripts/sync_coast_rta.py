@@ -43,6 +43,29 @@ def inspect_frequency_windows(rows,trip_ids):
          'overlapping_trip_windows':overlaps[:20], 'overlap_count':len(overlaps),
          'unknown_trip_ids':sorted(missing)[:20], 'unknown_trip_count':len(missing)}
 
+def summarize_frequency_routes(rows, trip_details):
+ """Read-only agency frequency coverage by route and service; no departures inferred."""
+ by_route={}
+ for row in rows:
+  trip_id=str(row.get("trip_id","")).strip()
+  trip=trip_details.get(trip_id)
+  if not trip:continue
+  route=str(trip.get("route","") or "(unnamed route)")
+  entry=by_route.setdefault(route,{"rows":0,"trips":set(),"services":set(),"modes":{}})
+  entry["rows"]+=1
+  entry["trips"].add(trip_id)
+  entry["services"].add(str(trip.get("service","")))
+  mode=str(row.get("exact_times","")).strip() or "0"
+  entry["modes"][mode]=entry["modes"].get(mode,0)+1
+ result=[]
+ for route,entry in sorted(by_route.items()):
+  result.append({"route":route,"frequency_rows":entry["rows"],
+                 "unique_trip_ids":len(entry["trips"]),
+                 "service_ids":sorted(entry["services"]),
+                 "exact_times_modes":entry["modes"]})
+ return {"affected_routes":len(result),"routes":result}
+
+
 def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
 
@@ -80,7 +103,10 @@ def main():
   routes={r["route_id"]:r.get("route_short_name","") or r.get("route_long_name","") for r in route_rows}
   trip_routes={t["trip_id"]:routes.get(t["route_id"],t["route_id"]) for t in trips}
   trip_details={t["trip_id"]:{"route":routes.get(t["route_id"],t["route_id"]),"service":t.get("service_id",""),"headsign":t.get("trip_headsign",""),"direction":t.get("direction_id","")} for t in trips}
-  frequency_coverage=check_frequency_coverage("frequencies.txt" in names,rows("frequencies.txt") if "frequencies.txt" in names else [],set(trip_details))
+  frequency_rows=rows("frequencies.txt") if "frequencies.txt" in names else []
+  if frequency_rows:
+   print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
+  frequency_coverage=check_frequency_coverage("frequencies.txt" in names,frequency_rows,set(trip_details))
   print("GTFS frequency coverage: "+json.dumps(frequency_coverage),flush=True)
   journey_trips={}
   for t in times:
