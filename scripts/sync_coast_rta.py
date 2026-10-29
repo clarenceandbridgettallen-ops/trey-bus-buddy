@@ -2,6 +2,8 @@
 """Fetch Coast RTA GTFS and cross-check published stop IDs against tracker pages."""
 import csv,io,json,os,re,urllib.request,zipfile,datetime,html
 from pathlib import Path
+from zoneinfo import ZoneInfo
+from service_calendar import audit_frequency_service_date
 ROOT=Path(__file__).resolve().parent.parent
 FEED="https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx"
 TRACKER="https://coastrta.transloc.com/routes/78/stops"
@@ -204,6 +206,11 @@ def main():
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
    print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
+  if frequency_rows:
+   # A date-scoped, read-only service audit; never a claim of exact departures.
+   local_day=datetime.datetime.now(ZoneInfo("America/New_York")).strftime("%Y%m%d")
+   calendar_report=audit_frequency_service_date(frequency_rows,trip_details,calendars,exceptions,local_day)
+   print("GTFS FREQUENCY SERVICE DAY "+json.dumps(calendar_report,sort_keys=True),flush=True)
   frequency_coverage=check_frequency_coverage("frequencies.txt" in names,frequency_rows,set(trip_details))
   print("GTFS frequency coverage: "+json.dumps(frequency_coverage),flush=True)
   journey_trips={}
