@@ -104,14 +104,42 @@ def stop_window(frequency, stops, stop_id, event='departure', stop_sequence=None
 
 def transfer_feasibility(inbound, outbound, minimum_transfer_seconds):
     """Rule out impossible windows; never assert a timed transfer is guaranteed."""
-    if (inbound.get('status') != 'possible_window_only_not_departure' or
+    import math
+    if (not isinstance(inbound, dict) or not isinstance(outbound, dict) or
+            inbound.get('status') != 'possible_window_only_not_departure' or
             outbound.get('status') != 'possible_window_only_not_departure'):
         return 'unknown_do_not_navigate'
-    if not isinstance(minimum_transfer_seconds, (int, float)) or minimum_transfer_seconds < 0:
+    # A corrupt bound, NaN, infinity or reversed window must never become a
+    # seemingly possible transfer. These are diagnostics, not departures.
+    fields = (inbound.get('earliest_seconds'), inbound.get('latest_exclusive_seconds'),
+              outbound.get('earliest_seconds'), outbound.get('latest_exclusive_seconds'),
+              minimum_transfer_seconds)
+    if any(type(v) not in (int, float) or not math.isfinite(v) for v in fields):
         return 'unknown_do_not_navigate'
-    if inbound['earliest_seconds'] + minimum_transfer_seconds >= outbound['latest_exclusive_seconds']:
+    in_start, in_end, out_start, out_end, walk = fields
+    if walk < 0 or in_end <= in_start or out_end <= out_start:
+        return 'unknown_do_not_navigate'
+    if in_start + walk >= out_end:
         return 'impossible_by_time_bounds'
     return 'possible_unverified_never_guaranteed'
+
+
+def transfer_feasibility_for_service_date(inbound, outbound, minimum_transfer_seconds,
+                                          inbound_service, outbound_service):
+    """Conservative date-aware transfer diagnostic; NOT a rider itinerary.
+
+    Statuses must be separately classified for the SAME GTFS service date,
+    including calendar_dates exceptions. Do not infer active service from a
+    clock date, or treat a possible window as an actual departure.
+    """
+    statuses = (inbound_service, outbound_service)
+    if any(s not in ('active', 'inactive', 'uncertain') for s in statuses):
+        return 'unknown_do_not_navigate'
+    if 'uncertain' in statuses:
+        return 'unknown_do_not_navigate'
+    if 'inactive' in statuses:
+        return 'inactive_service_on_selected_date'
+    return transfer_feasibility(inbound, outbound, minimum_transfer_seconds)
 
 
 
