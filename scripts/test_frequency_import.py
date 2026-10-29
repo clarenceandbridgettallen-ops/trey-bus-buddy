@@ -96,6 +96,46 @@ class FrequencyCoverageTests(unittest.TestCase):
         self.assertEqual(report["all_stop_times_blank"]["example_trip_ids"], ["b"])
         self.assertEqual(report["unresolved_calendar_service"]["example_trip_ids"], ["b"])
 
+    def test_frequency_template_audit_describes_first_timed_stop_without_guessing_departure(self):
+        report = inspect_frequency_templates(
+            [{"trip_id": "a"}],
+            {"a": {"route": "Rt 14 Georgetown / Andrews", "service": "weekday"}},
+            [
+                {"trip_id": "a", "stop_sequence": "1", "stop_id": "S1",
+                 "arrival_time": "", "departure_time": "", "pickup_type": "1", "timepoint": "0"},
+                {"trip_id": "a", "stop_sequence": "2", "stop_id": "S2",
+                 "arrival_time": "", "departure_time": ""},
+                {"trip_id": "a", "stop_sequence": "3", "stop_id": "S3",
+                 "arrival_time": "09:10:00", "departure_time": "09:12:00"},
+            ],
+            [{"service_id": "weekday"}], [],
+        )
+        self.assertEqual(report["missing_first_stop_time"]["count"], 1)
+        detail = report["missing_first_stop_details"][0]
+        self.assertEqual(detail["trip_id"], "a")
+        self.assertEqual(detail["first_stop_id"], "S1")
+        self.assertEqual(detail["first_stop_pickup_type"], "1")
+        self.assertEqual(detail["first_stop_timepoint"], "0")
+        self.assertEqual(detail["leading_untimed_stops"], 2)
+        self.assertEqual(detail["first_timed_stop_id"], "S3")
+        self.assertEqual(detail["first_timed_stop_time"], "09:12:00")
+        self.assertEqual(detail["route"], "Rt 14 Georgetown / Andrews")
+
+    def test_frequency_template_audit_entirely_untimed_has_no_invented_anchor(self):
+        report = inspect_frequency_templates(
+            [{"trip_id": "b"}], {"b": {"route": "Rt 3", "service": "s"}},
+            [{"trip_id": "b", "stop_sequence": "1", "stop_id": "X",
+              "arrival_time": "", "departure_time": ""},
+             {"trip_id": "b", "stop_sequence": "2", "stop_id": "Y",
+              "arrival_time": "", "departure_time": ""}],
+            [{"service_id": "s"}], [],
+        )
+        detail = report["missing_first_stop_details"][0]
+        self.assertEqual(detail["leading_untimed_stops"], 2)
+        self.assertEqual(detail["first_timed_stop_id"], "")
+        self.assertEqual(detail["first_timed_stop_time"], "")
+        self.assertEqual(report["all_stop_times_blank"]["count"], 1)
+
     def test_frequency_template_audit_accepts_exception_only_service(self):
         rows = [{"trip_id": "a"}]
         trips = {"a": {"service": "holiday"}}
