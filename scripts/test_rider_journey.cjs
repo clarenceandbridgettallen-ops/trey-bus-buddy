@@ -82,7 +82,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const fetch=async url=>{
   const u=String(url);
   if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
-  if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fixtureJourneys||journeys};
+  if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:[]};
@@ -106,6 +106,14 @@ async function selectAndrews(a){
  await a.click("yesDestination");assert.equal(a.state().screen,"itinerary");
 }
 async function main(){
+ const frequencyBlocked=boot("2026-10-27T11:00:00Z",null,null,"frequency-unverified");
+ await frequencyBlocked.settle();await selectAndrews(frequencyBlocked);
+ assert.equal(frequencyBlocked.get("guideStart").disabled,true,"Unverified frequency-based timetable must not start spoken boarding");
+ assert.match(frequencyBlocked.get("planStatus").textContent,/frequency-based service.*START MY TRIP is disabled/);
+ assert.match(frequencyBlocked.get("dataStatus").textContent,/frequency-based trips absent from this timetable/);
+ assert.ok(frequencyBlocked.get("planSteps").children.length,"Keep itinerary preview available for review");
+ await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
+ console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
  const a=boot();await a.settle();
  // Static CSS guard; actual mobile scrolling, TalkBack and focus still need device testing.
  // A sticky footer placed after <main> is invisible on long screens until scrolled into view.
