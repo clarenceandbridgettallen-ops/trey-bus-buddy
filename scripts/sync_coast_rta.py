@@ -118,6 +118,38 @@ def inspect_frequency_templates(frequency_rows, trip_details, stop_times, calend
          "all_stop_times_blank":summary(entirely_untimed),
          "unresolved_calendar_service":summary(unknown_services)}
 
+def inspect_stop_record_integrity(rows, official=True):
+ """Read-only record audit: ID parity can conceal duplicates or unusable coordinates.
+
+ Counts refer to raw GTFS/snapshot rows, not verified physical boarding stops.
+ Some non-platform GTFS location types may legitimately omit coordinates.
+ """
+ import math
+ from collections import Counter
+ id_field="stop_id" if official else "id"
+ lat_field="stop_lat" if official else "lat"
+ lon_field="stop_lon" if official else "lon"
+ ids=[];missing_id_rows=0;unusable_coordinates=[]
+ for index,row in enumerate(rows,1):
+  sid=str(row.get(id_field,"") or "").strip()
+  if sid:ids.append(sid)
+  else:missing_id_rows+=1
+  try:
+   lat=float(row.get(lat_field))
+   lon=float(row.get(lon_field))
+   usable=math.isfinite(lat) and math.isfinite(lon) and -90<=lat<=90 and -180<=lon<=180
+  except (ValueError,TypeError):
+   usable=False
+  if not usable:unusable_coordinates.append({"row":index,"id":sid})
+ counts=Counter(ids)
+ duplicates=sorted(sid for sid,n in counts.items() if n>1)
+ return {"raw_rows":len(rows),"distinct_nonempty_ids":len(counts),
+         "missing_id_rows":missing_id_rows,
+         "duplicate_id_count":len(duplicates),"duplicate_ids":duplicates[:20],
+         "unusable_coordinate_rows":len(unusable_coordinates),
+         "unusable_coordinate_examples":unusable_coordinates[:20]}
+
+
 def compare_stop_inventory(official_rows, stored_rows):
  """Read-only comparison of official GTFS stop IDs against published snapshot.
 
@@ -190,6 +222,7 @@ def main():
   if any(n not in names for n in required):raise RuntimeError("GTFS missing required files")
   def rows(n):return list(csv.DictReader(io.TextIOWrapper(z.open(names[n]),encoding="utf-8-sig")))
   stop_rows=rows("stops.txt");route_rows=rows("routes.txt");trips=rows("trips.txt");times=rows("stop_times.txt")
+  print("GTFS OFFICIAL STOP RECORD INTEGRITY "+json.dumps(inspect_stop_record_integrity(stop_rows,True),sort_keys=True),flush=True)
   calendars=rows("calendar.txt") if "calendar.txt" in names else []
   exceptions=rows("calendar_dates.txt") if "calendar_dates.txt" in names else []
   routes={r["route_id"]:r.get("route_short_name","") or r.get("route_long_name","") for r in route_rows}
@@ -199,6 +232,7 @@ def main():
   snapshot_path=ROOT/"data/coast-rta-stops.json"
   if snapshot_path.exists():
    stored=json.loads(snapshot_path.read_text(encoding="utf-8"))
+   print("GTFS STORED STOP RECORD INTEGRITY "+json.dumps(inspect_stop_record_integrity(stored.get("stops",[]),False),sort_keys=True),flush=True)
    comparison=compare_stop_inventory(stop_rows,stored.get("stops",[]))
    print("GTFS STOP INVENTORY COMPARISON "+json.dumps(comparison,sort_keys=True),flush=True)
   else:
