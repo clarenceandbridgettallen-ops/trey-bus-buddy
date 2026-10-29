@@ -111,6 +111,43 @@ def inspect_frequency_templates(frequency_rows, trip_details, stop_times, calend
          "all_stop_times_blank":summary(entirely_untimed),
          "unresolved_calendar_service":summary(unknown_services)}
 
+def compare_stop_inventory(official_rows, stored_rows):
+ """Read-only comparison of official GTFS stop IDs against published snapshot.
+
+ Counts describe data records, not verified physical bus stops or walking access.
+ """
+ import math
+ def valid(rows, official):
+  found={}
+  for row in rows:
+   sid=str(row.get("stop_id" if official else "id","")).strip()
+   try:
+    lat=float(row.get("stop_lat" if official else "lat"))
+    lon=float(row.get("stop_lon" if official else "lon"))
+   except (ValueError,TypeError):continue
+   if sid and -90<=lat<=90 and -180<=lon<=180:
+    found[sid]={"name":str(row.get("stop_name" if official else "name","")).strip(),
+                "lat":lat,"lon":lon}
+  return found
+ new=valid(official_rows,True);old=valid(stored_rows,False)
+ added=sorted(set(new)-set(old));removed=sorted(set(old)-set(new))
+ moved=[];renamed=[]
+ for sid in sorted(set(new)&set(old)):
+  a=new[sid];b=old[sid]
+  p1,p2=math.radians(a["lat"]),math.radians(b["lat"])
+  dphi=math.radians(b["lat"]-a["lat"])
+  dlambda=math.radians(b["lon"]-a["lon"])
+  h=math.sin(dphi/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dlambda/2)**2
+  meters=6371000*2*math.asin(min(1,math.sqrt(h)))
+  if meters>100:moved.append({"id":sid,"distance_m":round(meters)})
+  if a["name"]!=b["name"]:renamed.append({"id":sid,"old_name":b["name"],"new_name":a["name"]})
+ return {"official_valid_stop_ids":len(new),"stored_valid_stop_ids":len(old),
+         "new_in_official_feed_count":len(added),"new_in_official_feed_ids":added[:20],
+         "not_in_official_feed_count":len(removed),"not_in_official_feed_ids":removed[:20],
+         "coordinate_changes_over_100m_count":len(moved),
+         "coordinate_changes_over_100m":moved[:20],
+         "name_changes_count":len(renamed),"name_changes":renamed[:20]}
+
 def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
 
@@ -149,6 +186,13 @@ def main():
   trip_routes={t["trip_id"]:routes.get(t["route_id"],t["route_id"]) for t in trips}
   trip_details={t["trip_id"]:{"route":routes.get(t["route_id"],t["route_id"]),"service":t.get("service_id",""),"headsign":t.get("trip_headsign",""),"direction":t.get("direction_id","")} for t in trips}
   frequency_rows=rows("frequencies.txt") if "frequencies.txt" in names else []
+  snapshot_path=ROOT/"data/coast-rta-stops.json"
+  if snapshot_path.exists():
+   stored=json.loads(snapshot_path.read_text(encoding="utf-8"))
+   comparison=compare_stop_inventory(stop_rows,stored.get("stops",[]))
+   print("GTFS STOP INVENTORY COMPARISON "+json.dumps(comparison,sort_keys=True),flush=True)
+  else:
+   print("GTFS STOP INVENTORY COMPARISON unavailable: no stored snapshot",flush=True)
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
    print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
