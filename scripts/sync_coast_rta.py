@@ -77,18 +77,37 @@ def inspect_frequency_templates(frequency_rows, trip_details, stop_times, calend
   if tid in known:by_trip.setdefault(tid,[]).append(row)
  services={str(row.get("service_id","")).strip() for row in calendars+exceptions}
  missing_stops=[];missing_anchor=[];entirely_untimed=[];unknown_services=[]
+ missing_anchor_details=[]
+ def timed(stop):
+  return bool(str(stop.get("arrival_time","")).strip() or str(stop.get("departure_time","")).strip())
  for tid in sorted(known):
   stops=sorted(by_trip.get(tid,[]),key=lambda r:int(r.get("stop_sequence") or 0))
   if len(stops)<2:missing_stops.append(tid)
-  if not stops or not (str(stops[0].get("arrival_time","")).strip() or str(stops[0].get("departure_time","")).strip()):
+  if not stops or not timed(stops[0]):
    missing_anchor.append(tid)
-  if not any(str(s.get("arrival_time","")).strip() or str(s.get("departure_time","")).strip() for s in stops):
+   first_timed=next(((i,stop) for i,stop in enumerate(stops) if timed(stop)),None)
+   initial=stops[0] if stops else {}
+   later=first_timed[1] if first_timed else {}
+   missing_anchor_details.append({
+    "trip_id":tid,"route":trip_details[tid].get("route",""),
+    "service_id":trip_details[tid].get("service",""),
+    "first_stop_id":initial.get("stop_id",""),
+    "first_stop_sequence":initial.get("stop_sequence",""),
+    "first_stop_pickup_type":initial.get("pickup_type",""),
+    "first_stop_timepoint":initial.get("timepoint",""),
+    "leading_untimed_stops":first_timed[0] if first_timed else len(stops),
+    "first_timed_stop_id":later.get("stop_id",""),
+    "first_timed_stop_sequence":later.get("stop_sequence",""),
+    "first_timed_stop_time":later.get("departure_time") or later.get("arrival_time") or ""
+   })
+  if not any(timed(s) for s in stops):
    entirely_untimed.append(tid)
   if str(trip_details[tid].get("service","")).strip() not in services:unknown_services.append(tid)
  def summary(ids):return {"count":len(ids),"example_trip_ids":ids[:10]}
  return {"known_frequency_trip_templates":len(known),
          "fewer_than_two_stops":summary(missing_stops),
          "missing_first_stop_time":summary(missing_anchor),
+         "missing_first_stop_details":missing_anchor_details[:10],
          "all_stop_times_blank":summary(entirely_untimed),
          "unresolved_calendar_service":summary(unknown_services)}
 
