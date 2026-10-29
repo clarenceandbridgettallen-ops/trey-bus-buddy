@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -216,6 +216,39 @@ class FrequencyCoverageTests(unittest.TestCase):
         report = inspect_frequency_windows(rows, {"a"})
         self.assertEqual(report["invalid_row_count"], 1)
         self.assertEqual(report["unknown_trip_ids"], ["missing"])
+
+    def test_duplicate_stop_ids_are_visible_even_when_unique_count_matches(self):
+        official = [
+            {"stop_id":"TL-1","stop_lat":"33.7","stop_lon":"-79.0"},
+            {"stop_id":"TL-1","stop_lat":"33.8","stop_lon":"-79.1"},
+            {"stop_id":"TL-2","stop_lat":"33.9","stop_lon":"-79.0"},
+        ]
+        report = inspect_stop_record_integrity(official)
+        self.assertEqual(report["raw_rows"],3)
+        self.assertEqual(report["distinct_nonempty_ids"],2)
+        self.assertEqual(report["duplicate_id_count"],1)
+        self.assertEqual(report["duplicate_ids"],["TL-1"])
+
+    def test_missing_stop_ids_and_unusable_coordinates_are_not_hidden(self):
+        official = [
+            {"stop_id":"","stop_lat":"33.7","stop_lon":"-79.0"},
+            {"stop_id":"TL-2","stop_lat":"nan","stop_lon":"-79.0"},
+            {"stop_id":"TL-3","stop_lat":"91","stop_lon":"-79.0"},
+            {"stop_id":"TL-4","stop_lat":"33.7","stop_lon":"-79.0"},
+        ]
+        report = inspect_stop_record_integrity(official)
+        self.assertEqual(report["missing_id_rows"],1)
+        self.assertEqual(report["unusable_coordinate_rows"],2)
+        self.assertEqual([x["id"] for x in report["unusable_coordinate_examples"]],["TL-2","TL-3"])
+
+    def test_stored_stop_integrity_uses_stored_field_names(self):
+        stored = [{"id":"TL-1","lat":33.7,"lon":-79.0},
+                  {"id":"TL-2","lat":33.8,"lon":-79.1}]
+        report = inspect_stop_record_integrity(stored,official=False)
+        self.assertEqual(report["distinct_nonempty_ids"],2)
+        self.assertEqual(report["missing_id_rows"],0)
+        self.assertEqual(report["duplicate_id_count"],0)
+        self.assertEqual(report["unusable_coordinate_rows"],0)
 
 if __name__ == "__main__":
     unittest.main()
