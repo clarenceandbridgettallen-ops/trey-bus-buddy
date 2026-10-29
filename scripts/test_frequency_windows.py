@@ -288,4 +288,31 @@ class FrequencyWindowTests(unittest.TestCase):
         self.assertFalse(report['departures_verified'])
 
 
+    def test_cross_event_reverse_segment_not_missed_by_same_event_checks(self):
+        # Arrival-to-arrival and departure-to-departure are increasing, but
+        # the bus cannot depart stop 1 at 08:30 and arrive at stop 2 at 08:20.
+        data = [
+            {'trip_id':'t','stop_sequence':'1','arrival_time':'08:00:00','departure_time':'08:30:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','arrival_time':'08:20:00','departure_time':'08:45:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['backward_anchor_pairs'], 0)
+        self.assertEqual(report['cross_event_pairs_checked'], 1)
+        self.assertEqual(report['backward_cross_event_pairs'], 1)
+        self.assertEqual(report['affected_template_examples'], ['t'])
+        self.assertFalse(report['departures_verified'])
+
+    def test_cross_event_audit_skips_approximate_rows_and_accepts_overnight(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','arrival_time':'23:55:00','departure_time':'23:58:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','arrival_time':'20:00:00','departure_time':'20:01:00','timepoint':'0'},
+            {'trip_id':'t','stop_sequence':'3','arrival_time':'24:05:00','departure_time':'24:06:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['cross_event_pairs_checked'], 1)
+        self.assertEqual(report['backward_cross_event_pairs'], 0)
+        self.assertEqual(report['excluded_approximate_rows'], 1)
+        self.assertEqual(report['affected_template_count'], 0)
+
+
 if __name__ == '__main__': unittest.main()
