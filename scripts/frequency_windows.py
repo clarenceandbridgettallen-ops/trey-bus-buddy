@@ -45,19 +45,38 @@ def stop_window(frequency, stops, stop_id, event='departure'):
         return unknown('invalid_stop_sequence')
     if len(ordered) < 2 or len(set(sequences)) != len(sequences):
         return unknown('missing_or_duplicate_stop_sequence')
+    # Never combine stop-time rows from a different trip into a plausible window.
+    trip_id = str(frequency.get('trip_id', '')).strip()
+    if not trip_id or any(str(row.get('trip_id', '')).strip() != trip_id for row in ordered):
+        return unknown('mismatched_trip_stop_times')
     first_departure = seconds(ordered[0].get('departure_time'))
     if first_departure is None:
         return unknown('missing_first_stop_departure_anchor')
     matches = [row for row in ordered if str(row.get('stop_id', '')).strip() == str(stop_id)]
-    if len(matches) != 1:
-        return unknown('missing_or_ambiguous_stop_id')
+    if not matches:
+        return unknown('missing_stop_id')
+    if len(matches) > 1:
+        # Looped trips may legally visit the same stop more than once.
+        return unknown('repeated_stop_id_requires_stop_sequence')
     stop = matches[0]
     restriction = 'pickup_type' if event == 'departure' else 'drop_off_type'
     if str(stop.get(restriction, '')).strip() not in ('', '0'):
         return unknown('boarding_or_alighting_not_confirmed')
-    target = seconds(stop.get(event + '_time'))
-    if target is None or target < first_departure:
-        return unknown('missing_or_invalid_stop_offset')
+    timepoint = str(stop.get('timepoint', '')).strip()
+    if timepoint not in ('', '0', '1'):
+        return unknown('invalid_timepoint')
+    raw_time = str(stop.get(event + '_time', '') or '').strip()
+    if not raw_time:
+        # GTFS permits some intermediate timepoint=0 rows to omit times.
+        # This requires interpolation and is not safe for rider navigation.
+        return unknown('untimed_approximate_stop_requires_interpolation' if timepoint == '0'
+                       else 'missing_required_or_unmarked_stop_time')
+    target = seconds(raw_time)
+    if target is None:
+        return unknown('malformed_stop_time')
+    if target < first_departure:
+        # May be legitimate at a first-stop arrival; do not invent a bound.
+        return unknown('negative_offset_unverified')
     offset = target - first_departure
     return {
         'status': 'possible_window_only_not_departure',
@@ -66,7 +85,8 @@ def stop_window(frequency, stops, stop_id, event='departure'):
         'headway_seconds': headway,
         'exact_times_mode': mode,
         'stop_id': str(stop_id),
-        'timepoint': str(stop.get('timepoint', '')).strip() or 'unspecified',
+        'timepoint': timepoint or 'unspecified',
+        'stop_time_approximate': timepoint == '0',
         'timing_verified': False,
         'live_arrival_verified': False,
     }
