@@ -66,6 +66,32 @@ def summarize_frequency_routes(rows, trip_details):
  return {"affected_routes":len(result),"routes":result}
 
 
+
+def inspect_frequency_templates(frequency_rows, trip_details, stop_times, calendars, exceptions):
+ """Read-only: identify whether frequency trip templates contain usable stop-time offsets."""
+ referenced={str(row.get("trip_id","")).strip() for row in frequency_rows}
+ known=referenced & set(trip_details)
+ by_trip={}
+ for row in stop_times:
+  tid=str(row.get("trip_id","")).strip()
+  if tid in known:by_trip.setdefault(tid,[]).append(row)
+ services={str(row.get("service_id","")).strip() for row in calendars+exceptions}
+ missing_stops=[];missing_anchor=[];entirely_untimed=[];unknown_services=[]
+ for tid in sorted(known):
+  stops=sorted(by_trip.get(tid,[]),key=lambda r:int(r.get("stop_sequence") or 0))
+  if len(stops)<2:missing_stops.append(tid)
+  if not stops or not (str(stops[0].get("arrival_time","")).strip() or str(stops[0].get("departure_time","")).strip()):
+   missing_anchor.append(tid)
+  if not any(str(s.get("arrival_time","")).strip() or str(s.get("departure_time","")).strip() for s in stops):
+   entirely_untimed.append(tid)
+  if str(trip_details[tid].get("service","")).strip() not in services:unknown_services.append(tid)
+ def summary(ids):return {"count":len(ids),"example_trip_ids":ids[:10]}
+ return {"known_frequency_trip_templates":len(known),
+         "fewer_than_two_stops":summary(missing_stops),
+         "missing_first_stop_time":summary(missing_anchor),
+         "all_stop_times_blank":summary(entirely_untimed),
+         "unresolved_calendar_service":summary(unknown_services)}
+
 def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
 
@@ -106,6 +132,7 @@ def main():
   frequency_rows=rows("frequencies.txt") if "frequencies.txt" in names else []
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
+   print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
   frequency_coverage=check_frequency_coverage("frequencies.txt" in names,frequency_rows,set(trip_details))
   print("GTFS frequency coverage: "+json.dumps(frequency_coverage),flush=True)
   journey_trips={}
