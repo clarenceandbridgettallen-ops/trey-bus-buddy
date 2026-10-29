@@ -131,7 +131,7 @@ def compare_stop_inventory(official_rows, stored_rows):
   return found
  new=valid(official_rows,True);old=valid(stored_rows,False)
  added=sorted(set(new)-set(old));removed=sorted(set(old)-set(new))
- moved=[];renamed=[]
+ moved=[];moved_over_10m=[];renamed=[]
  for sid in sorted(set(new)&set(old)):
   a=new[sid];b=old[sid]
   p1,p2=math.radians(a["lat"]),math.radians(b["lat"])
@@ -139,11 +139,14 @@ def compare_stop_inventory(official_rows, stored_rows):
   dlambda=math.radians(b["lon"]-a["lon"])
   h=math.sin(dphi/2)**2+math.cos(p1)*math.cos(p2)*math.sin(dlambda/2)**2
   meters=6371000*2*math.asin(min(1,math.sqrt(h)))
+  if meters>10:moved_over_10m.append({"id":sid,"distance_m":round(meters,1)})
   if meters>100:moved.append({"id":sid,"distance_m":round(meters)})
   if a["name"]!=b["name"]:renamed.append({"id":sid,"old_name":b["name"],"new_name":a["name"]})
  return {"official_valid_stop_ids":len(new),"stored_valid_stop_ids":len(old),
          "new_in_official_feed_count":len(added),"new_in_official_feed_ids":added[:20],
          "not_in_official_feed_count":len(removed),"not_in_official_feed_ids":removed[:20],
+         "coordinate_changes_over_10m_count":len(moved_over_10m),
+         "coordinate_changes_over_10m":sorted(moved_over_10m,key=lambda x:-x["distance_m"])[:20],
          "coordinate_changes_over_100m_count":len(moved),
          "coordinate_changes_over_100m":moved[:20],
          "name_changes_count":len(renamed),"name_changes":renamed[:20]}
