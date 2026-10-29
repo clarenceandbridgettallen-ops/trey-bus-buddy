@@ -46,6 +46,25 @@ class CalendarAuditTests(unittest.TestCase):
         self.assertEqual(self.audit(cal=[c])['uncertain_rows'],1)
         self.assertEqual(self.audit(cal=[c])['invalid_calendar_rows'],1)
 
+    def test_invalid_exception_on_other_date_does_not_cancel_today(self):
+        e=[{'service_id':'weekday','date':'20261030','exception_type':'invalid'}]
+        result=self.audit(exc=e,date='20261029')
+        self.assertEqual(result['active_rows'],1)
+        self.assertEqual(result['uncertain_rows'],0)
+        self.assertEqual(result['invalid_exception_rows'],1)
+
+    def test_invalid_exception_on_target_date_remains_uncertain(self):
+        e=[{'service_id':'weekday','date':'20261029','exception_type':'invalid'}]
+        result=self.audit(exc=e,date='20261029')
+        self.assertEqual(result['uncertain_rows'],1)
+        self.assertEqual(result['invalid_exception_rows'],1)
+
+    def test_malformed_exception_date_remains_uncertain(self):
+        e=[{'service_id':'weekday','date':'not-a-date','exception_type':'2'}]
+        result=self.audit(exc=e,date='20261029')
+        self.assertEqual(result['uncertain_rows'],1)
+        self.assertEqual(result['invalid_exception_rows'],1)
+
     def test_unknown_trip_is_uncertain(self):
         self.assertEqual(audit_frequency_service_date([{'trip_id':'missing'}],self.trips,[week()],[],'20261029')['uncertain_rows'],1)
 
