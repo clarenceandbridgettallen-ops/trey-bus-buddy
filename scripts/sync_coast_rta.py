@@ -33,8 +33,13 @@ def inspect_frequency_windows(rows,trip_ids):
  overlaps=[]
  for trip,windows in intervals.items():
   windows.sort()
-  for prior,current in zip(windows,windows[1:]):
-   if current[0]<prior[1]:overlaps.append([trip,prior[2],current[2]])
+  # Adjacent-only comparisons miss nested windows (e.g. 08-12, 09-10, 10-11).
+  # Track every still-open interval to report all overlapping pairs.
+  active=[]
+  for start,end,index in windows:
+   active=[(prior_end,prior_index) for prior_end,prior_index in active if prior_end>start]
+   overlaps.extend([trip,prior_index,index] for prior_end,prior_index in active)
+   active.append((end,index))
  return {'exact_times_modes':modes,'headway_secs_min':min(headways) if headways else None,
          'headway_secs_max':max(headways) if headways else None,
          'window_start_earliest_secs':min(first) if first else None,
