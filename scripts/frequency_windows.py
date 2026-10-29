@@ -18,7 +18,7 @@ def unknown(reason):
     return {'status': 'unknown_do_not_navigate', 'reason': reason}
 
 
-def stop_window(frequency, stops, stop_id, event='departure'):
+def stop_window(frequency, stops, stop_id, event='departure', stop_sequence=None):
     """Return a *possible service window*, never a specific bus time.
 
     GTFS frequencies start/end refer to the first stop's departure time. The
@@ -55,6 +55,15 @@ def stop_window(frequency, stops, stop_id, event='departure'):
     matches = [row for row in ordered if str(row.get('stop_id', '')).strip() == str(stop_id)]
     if not matches:
         return unknown('missing_stop_id')
+    if stop_sequence is not None:
+        # GTFS stop_times primary key is (trip_id, stop_sequence).
+        # Never guess which visit to a looped stop the rider intends.
+        requested = str(stop_sequence).strip()
+        if not re.fullmatch(r'\d+', requested):
+            return unknown('invalid_requested_stop_sequence')
+        matches = [row for row in matches if int(row['stop_sequence']) == int(requested)]
+        if not matches:
+            return unknown('stop_sequence_does_not_match_stop_id')
     if len(matches) > 1:
         # Looped trips may legally visit the same stop more than once.
         return unknown('repeated_stop_id_requires_stop_sequence')
@@ -85,6 +94,7 @@ def stop_window(frequency, stops, stop_id, event='departure'):
         'headway_seconds': headway,
         'exact_times_mode': mode,
         'stop_id': str(stop_id),
+        'stop_sequence': int(stop['stop_sequence']),
         'timepoint': timepoint or 'unspecified',
         'stop_time_approximate': timepoint == '0',
         'timing_verified': False,
@@ -130,7 +140,7 @@ def audit_frequency_boarding_windows(frequencies, stop_times):
         for stop in eligible:
             # Only inspect boarding-eligible stops; this does not prove a safe
             # pedestrian approach or accessible boarding side.
-            result = stop_window(freq, stops, stop.get('stop_id', ''), 'departure')
+            result = stop_window(freq, stops, stop.get('stop_id', ''), 'departure', stop_sequence=stop.get('stop_sequence'))
             if result['status'] == 'possible_window_only_not_departure':
                 window_pairs += 1
             else:
