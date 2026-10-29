@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -95,6 +95,36 @@ class FrequencyCoverageTests(unittest.TestCase):
         self.assertEqual(report["missing_first_stop_time"]["count"], 2)
         self.assertEqual(report["all_stop_times_blank"]["example_trip_ids"], ["b"])
         self.assertEqual(report["unresolved_calendar_service"]["example_trip_ids"], ["b"])
+
+    def test_official_stop_inventory_reports_changes_without_inventing_stops(self):
+        official = [
+            {"stop_id": "A", "stop_name": "New A", "stop_lat": "33.7", "stop_lon": "-79.0"},
+            {"stop_id": "B", "stop_name": "B", "stop_lat": "33.8", "stop_lon": "-79.0"},
+            {"stop_id": "D", "stop_name": "D", "stop_lat": "33.9", "stop_lon": "-79.0"},
+            {"stop_id": "invalid", "stop_lat": "unknown", "stop_lon": "-79.0"},
+        ]
+        stored = [
+            {"id": "A", "name": "Old A", "lat": 33.7, "lon": -79.0},
+            {"id": "B", "name": "B", "lat": 33.802, "lon": -79.0},
+            {"id": "C", "name": "C", "lat": 33.9, "lon": -79.0},
+        ]
+        report = compare_stop_inventory(official, stored)
+        self.assertEqual(report["official_valid_stop_ids"], 3)
+        self.assertEqual(report["stored_valid_stop_ids"], 3)
+        self.assertEqual(report["new_in_official_feed_ids"], ["D"])
+        self.assertEqual(report["not_in_official_feed_ids"], ["C"])
+        self.assertEqual(report["coordinate_changes_over_100m_count"], 1)
+        self.assertEqual(report["coordinate_changes_over_100m"][0]["id"], "B")
+        self.assertEqual(report["name_changes"][0]["id"], "A")
+
+    def test_unchanged_stop_inventory_has_no_false_changes(self):
+        official = [{"stop_id": "A", "stop_name": "A", "stop_lat": "33.7", "stop_lon": "-79.0"}]
+        stored = [{"id": "A", "name": "A", "lat": 33.7, "lon": -79.0}]
+        report = compare_stop_inventory(official, stored)
+        self.assertEqual(report["new_in_official_feed_count"], 0)
+        self.assertEqual(report["not_in_official_feed_count"], 0)
+        self.assertEqual(report["coordinate_changes_over_100m_count"], 0)
+        self.assertEqual(report["name_changes_count"], 0)
 
     def test_frequency_template_audit_describes_first_timed_stop_without_guessing_departure(self):
         report = inspect_frequency_templates(
