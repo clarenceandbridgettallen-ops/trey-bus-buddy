@@ -132,4 +132,54 @@ class FrequencyWindowTests(unittest.TestCase):
         self.assertFalse(report['transfers_verified'])
 
 
+    def test_looped_stop_visits_have_distinct_sequence_offsets(self):
+        data = stops()
+        data.append(dict(data[1], stop_sequence='3',
+                         arrival_time='08:28:00', departure_time='08:30:00'))
+        first = stop_window(freq(), data, 'B', stop_sequence=2)
+        second = stop_window(freq(), data, 'B', stop_sequence='3')
+        self.assertEqual(first['status'], 'possible_window_only_not_departure')
+        self.assertEqual(second['status'], 'possible_window_only_not_departure')
+        self.assertEqual(first['stop_sequence'], 2)
+        self.assertEqual(second['stop_sequence'], 3)
+        self.assertEqual(second['earliest_seconds'] - first['earliest_seconds'], 13 * 60)
+        self.assertFalse(first['timing_verified'])
+        self.assertFalse(second['timing_verified'])
+
+    def test_looped_stop_without_sequence_remains_ambiguous(self):
+        data = stops()
+        data.append(dict(data[1], stop_sequence='3', departure_time='08:30:00'))
+        self.assertEqual(stop_window(freq(), data, 'B')['reason'],
+                         'repeated_stop_id_requires_stop_sequence')
+
+    def test_wrong_or_invalid_sequence_cannot_select_a_different_stop(self):
+        data = stops()
+        self.assertEqual(stop_window(freq(), data, 'B', stop_sequence=1)['reason'],
+                         'stop_sequence_does_not_match_stop_id')
+        for invalid in ('', '2.0', '-2', 'not-a-sequence'):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(stop_window(freq(), data, 'B', stop_sequence=invalid)['reason'],
+                                 'invalid_requested_stop_sequence')
+
+    def test_audit_counts_loop_visits_by_sequence_without_certifying_departures(self):
+        data = stops()
+        data.append(dict(data[1], stop_sequence='3',
+                         arrival_time='08:28:00', departure_time='08:30:00'))
+        report = audit_frequency_boarding_windows([freq()], data)
+        self.assertEqual(report['window_only_boarding_pairs'], 3)
+        self.assertEqual(report['unknown_boarding_pairs'], 0)
+        self.assertEqual(report['blocked_template_count'], 0)
+        self.assertFalse(report['transfers_verified'])
+        self.assertFalse(report['live_arrivals_verified'])
+
+    def test_audit_loop_with_untimed_visit_remains_blocked(self):
+        data = stops()
+        data.append(dict(data[1], stop_sequence='3',
+                         departure_time='', timepoint='0'))
+        report = audit_frequency_boarding_windows([freq()], data)
+        self.assertEqual(report['window_only_boarding_pairs'], 2)
+        self.assertEqual(report['unknown_reasons']['untimed_approximate_stop_requires_interpolation'], 1)
+        self.assertEqual(report['blocked_template_count'], 1)
+
+
 if __name__ == '__main__': unittest.main()
