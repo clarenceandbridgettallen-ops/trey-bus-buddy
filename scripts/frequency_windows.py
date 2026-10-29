@@ -144,6 +144,91 @@ def has_bracketing_timepoints(stops, stop_sequence, event='departure'):
     return before is not None and after is not None and before <= after
 
 
+
+def audit_frequency_anchor_order(frequencies, stop_times):
+    """Read-only chronology audit of exact GTFS timepoints, never interpolation.
+
+    Approximate timepoint=0 rows are excluded from anchor comparisons. Compare
+    arrival with arrival and departure with departure in stop_sequence order;
+    also reject arrival later than departure at the same exact timepoint.
+    Missing values are not guessed or treated as zero.
+    """
+    referenced = {str(row.get('trip_id', '')).strip() for row in frequencies}
+    by_trip = {}
+    for row in stop_times:
+        trip = str(row.get('trip_id', '')).strip()
+        if trip in referenced:
+            by_trip.setdefault(trip, []).append(row)
+    checked_pairs = 0
+    reversed_pairs = 0
+    reversed_dwell = 0
+    invalid_times = 0
+    invalid_sequences = 0
+    excluded_approximate_rows = 0
+    affected = set()
+    missing_trip_rows = 0
+    for trip in sorted(referenced):
+        stops = by_trip.get(trip, [])
+        if not stops:
+            missing_trip_rows += 1
+            affected.add(trip)
+            continue
+        try:
+            ordered = sorted(stops, key=lambda row: int(row['stop_sequence']))
+            sequences = [int(row['stop_sequence']) for row in ordered]
+            if len(set(sequences)) != len(sequences):
+                raise ValueError('duplicate stop_sequence')
+        except (KeyError, ValueError, TypeError):
+            invalid_sequences += 1
+            affected.add(trip)
+            continue
+        previous = {'arrival': None, 'departure': None}
+        for row in ordered:
+            timepoint = str(row.get('timepoint', '')).strip()
+            if timepoint == '0':
+                excluded_approximate_rows += 1
+                continue
+            if timepoint not in ('', '1'):
+                invalid_times += 1
+                affected.add(trip)
+                continue
+            values = {}
+            for event in ('arrival', 'departure'):
+                raw = str(row.get(event + '_time', '') or '').strip()
+                if not raw:
+                    continue
+                current = seconds(raw)
+                if current is None:
+                    invalid_times += 1
+                    affected.add(trip)
+                    continue
+                values[event] = current
+                if previous[event] is not None:
+                    checked_pairs += 1
+                    if current < previous[event]:
+                        reversed_pairs += 1
+                        affected.add(trip)
+                previous[event] = current
+            if ('arrival' in values and 'departure' in values
+                    and values['arrival'] > values['departure']):
+                reversed_dwell += 1
+                affected.add(trip)
+    return {
+        'status': 'diagnostic_only_not_rider_routing',
+        'frequency_trip_templates': len(referenced),
+        'ordered_anchor_pairs_checked': checked_pairs,
+        'backward_anchor_pairs': reversed_pairs,
+        'arrival_after_departure_at_stop': reversed_dwell,
+        'malformed_anchor_or_timepoint_rows': invalid_times,
+        'invalid_sequence_templates': invalid_sequences,
+        'missing_stop_time_templates': missing_trip_rows,
+        'excluded_approximate_rows': excluded_approximate_rows,
+        'affected_template_count': len(affected),
+        'affected_template_examples': sorted(affected)[:20],
+        'interpolation_performed': False,
+        'departures_verified': False,
+    }
+
 def audit_frequency_boarding_windows(frequencies, stop_times):
     """Count diagnostics only; no route or arrival predictions are published."""
     by_trip = {}
