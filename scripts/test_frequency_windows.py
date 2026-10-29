@@ -1,5 +1,5 @@
 import unittest
-from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows, has_bracketing_timepoints
+from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows, has_bracketing_timepoints, audit_frequency_anchor_order
 
 
 def freq(**changes):
@@ -230,6 +230,62 @@ class FrequencyWindowTests(unittest.TestCase):
         ]
         self.assertTrue(has_bracketing_timepoints(data, 2))
         self.assertFalse(has_bracketing_timepoints(data, 3))
+
+
+    def test_backward_timepoint_anchors_are_flagged(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','arrival_time':'08:00:00','departure_time':'08:01:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','arrival_time':'08:20:00','departure_time':'08:21:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'3','arrival_time':'08:10:00','departure_time':'08:11:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['backward_anchor_pairs'], 2)
+        self.assertEqual(report['affected_template_examples'], ['t'])
+        self.assertFalse(report['interpolation_performed'])
+
+    def test_approximate_timepoint_is_not_an_exact_anchor(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','departure_time':'08:00:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','departure_time':'07:00:00','timepoint':'0'},
+            {'trip_id':'t','stop_sequence':'3','departure_time':'08:30:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['backward_anchor_pairs'], 0)
+        self.assertEqual(report['excluded_approximate_rows'], 1)
+        self.assertEqual(report['ordered_anchor_pairs_checked'], 1)
+
+    def test_arrival_later_than_departure_is_flagged(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','arrival_time':'08:05:00','departure_time':'08:00:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','arrival_time':'08:30:00','departure_time':'08:31:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['arrival_after_departure_at_stop'], 1)
+        self.assertEqual(report['affected_template_count'], 1)
+
+    def test_malformed_and_duplicate_sequences_fail_diagnostic(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','departure_time':'08:00:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'1','departure_time':'08:30:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['invalid_sequence_templates'], 1)
+        self.assertEqual(report['ordered_anchor_pairs_checked'], 0)
+        data[1]['stop_sequence'] = '2'
+        data[1]['departure_time'] = '08:99:00'
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['malformed_anchor_or_timepoint_rows'], 1)
+
+    def test_gtfs_overnight_hours_remain_ordered(self):
+        data = [
+            {'trip_id':'t','stop_sequence':'1','departure_time':'23:55:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'2','departure_time':'24:10:00','timepoint':'1'},
+            {'trip_id':'t','stop_sequence':'3','departure_time':'25:00:00','timepoint':'1'},
+        ]
+        report = audit_frequency_anchor_order([freq()], data)
+        self.assertEqual(report['ordered_anchor_pairs_checked'], 2)
+        self.assertEqual(report['backward_anchor_pairs'], 0)
+        self.assertFalse(report['departures_verified'])
 
 
 if __name__ == '__main__': unittest.main()
