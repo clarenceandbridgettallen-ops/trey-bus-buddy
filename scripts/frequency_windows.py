@@ -114,6 +114,36 @@ def transfer_feasibility(inbound, outbound, minimum_transfer_seconds):
     return 'possible_unverified_never_guaranteed'
 
 
+
+def has_bracketing_timepoints(stops, stop_sequence, event='departure'):
+    """Read-only shape check, NOT interpolation or a safe boarding time.
+
+    An untimed intermediate stop has candidate anchors only if a timed
+    timepoint exists on both sides in this exact trip sequence. Even then,
+    road distance, runtime and agency approval are not verified.
+    """
+    if event not in ('departure', 'arrival'):
+        return False
+    try:
+        ordered = sorted(stops, key=lambda row: int(row['stop_sequence']))
+        sequences = [int(row['stop_sequence']) for row in ordered]
+        target = int(stop_sequence)
+    except (KeyError, TypeError, ValueError):
+        return False
+    if len(sequences) != len(set(sequences)) or target not in sequences:
+        return False
+    index = sequences.index(target)
+    def anchor(row):
+        if str(row.get('timepoint', '')).strip() not in ('', '1'):
+            return None
+        return seconds(row.get(event + '_time'))
+    before = next((value for row in reversed(ordered[:index])
+                   if (value := anchor(row)) is not None), None)
+    after = next((value for row in ordered[index + 1:]
+                  if (value := anchor(row)) is not None), None)
+    return before is not None and after is not None and before <= after
+
+
 def audit_frequency_boarding_windows(frequencies, stop_times):
     """Count diagnostics only; no route or arrival predictions are published."""
     by_trip = {}
@@ -123,6 +153,8 @@ def audit_frequency_boarding_windows(frequencies, stop_times):
     window_pairs = 0
     blocked_trips = set()
     reasons = {}
+    bracketed_untimed = 0
+    unbracketed_untimed = 0
     for freq in frequencies:
         trip = str(freq.get('trip_id', '')).strip()
         stops = by_trip.get(trip, [])
@@ -148,6 +180,11 @@ def audit_frequency_boarding_windows(frequencies, stop_times):
                 blocked_trips.add(trip)
                 reason = result['reason']
                 reasons[reason] = reasons.get(reason, 0) + 1
+                if reason == 'untimed_approximate_stop_requires_interpolation':
+                    if has_bracketing_timepoints(stops, stop.get('stop_sequence'), 'departure'):
+                        bracketed_untimed += 1
+                    else:
+                        unbracketed_untimed += 1
     return {
         'status': 'diagnostic_only_not_rider_routing',
         'frequency_rows': len(frequencies),
@@ -156,6 +193,8 @@ def audit_frequency_boarding_windows(frequencies, stop_times):
         'blocked_template_count': len(blocked_trips),
         'blocked_template_examples': sorted(blocked_trips)[:20],
         'unknown_reasons': reasons,
+        'untimed_bracket_candidates_not_verified': bracketed_untimed,
+        'untimed_without_valid_brackets': unbracketed_untimed,
         'safe_walks_verified': False,
         'transfers_verified': False,
         'live_arrivals_verified': False,
