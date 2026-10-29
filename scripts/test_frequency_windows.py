@@ -1,5 +1,5 @@
 import unittest
-from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows, has_bracketing_timepoints, audit_frequency_anchor_order
+from frequency_windows import seconds, stop_window, transfer_feasibility, audit_frequency_boarding_windows, has_bracketing_timepoints, audit_frequency_anchor_order, transfer_feasibility_for_service_date
 
 
 def freq(**changes):
@@ -313,6 +313,49 @@ class FrequencyWindowTests(unittest.TestCase):
         self.assertEqual(report['backward_cross_event_pairs'], 0)
         self.assertEqual(report['excluded_approximate_rows'], 1)
         self.assertEqual(report['affected_template_count'], 0)
+
+
+    def test_transfer_corrupt_windows_fail_closed(self):
+        valid_in = stop_window(freq(), stops(), 'B', 'arrival')
+        valid_out = stop_window(freq(), stops(), 'A')
+        bad_inputs = [
+            ({**valid_in, 'earliest_seconds': float('nan')}, valid_out, 600),
+            ({**valid_in, 'earliest_seconds': float('inf')}, valid_out, 600),
+            ({**valid_in, 'latest_exclusive_seconds': valid_in['earliest_seconds']}, valid_out, 600),
+            (valid_in, {**valid_out, 'latest_exclusive_seconds': '09:00'}, 600),
+            (valid_in, {**valid_out, 'earliest_seconds': 50000, 'latest_exclusive_seconds': 40000}, 600),
+            (valid_in, valid_out, float('nan')),
+            (valid_in, valid_out, float('inf')),
+            (None, valid_out, 600),
+        ]
+        for inbound, outbound, walk in bad_inputs:
+            with self.subTest(inbound=inbound, outbound=outbound, walk=walk):
+                self.assertEqual(transfer_feasibility(inbound, outbound, walk),
+                                 'unknown_do_not_navigate')
+
+    def test_transfer_service_date_must_be_active_on_both_legs(self):
+        inbound = stop_window(freq(), stops(), 'B', 'arrival')
+        outbound = stop_window(freq(), stops(), 'A')
+        self.assertEqual(
+            transfer_feasibility_for_service_date(inbound, outbound, 600, 'active', 'active'),
+            'possible_unverified_never_guaranteed')
+        self.assertEqual(
+            transfer_feasibility_for_service_date(inbound, outbound, 600, 'active', 'inactive'),
+            'inactive_service_on_selected_date')
+        self.assertEqual(
+            transfer_feasibility_for_service_date(inbound, outbound, 600, 'uncertain', 'inactive'),
+            'unknown_do_not_navigate')
+        self.assertEqual(
+            transfer_feasibility_for_service_date(inbound, outbound, 600, None, 'active'),
+            'unknown_do_not_navigate')
+
+    def test_date_active_cannot_override_unknown_stop_window(self):
+        inbound = {'status': 'unknown_do_not_navigate'}
+        outbound = stop_window(freq(), stops(), 'A')
+        self.assertEqual(
+            transfer_feasibility_for_service_date(inbound, outbound, 600, 'active', 'active'),
+            'unknown_do_not_navigate')
+
 
 
 if __name__ == '__main__': unittest.main()
