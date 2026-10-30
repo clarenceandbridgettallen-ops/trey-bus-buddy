@@ -336,6 +336,21 @@ async function main(){
  assert.equal(holiday.get("guideStart").disabled,true);
  assert.match(holiday.get("planStatus").textContent,/No Coast RTA fixed-route service is scheduled today/);
  console.log("PASS: Thanksgiving holiday does not generate an itinerary");
+
+ // Coast RTA's published non-service holidays must remain fail-closed
+ // even though the current official GTFS snapshot has no dated exceptions.
+ // All fixture timestamps are 10 AM in America/New_York, not live bus times.
+ for(const [label,instant] of [
+  ["Christmas Day 2026","2026-12-25T15:00:00Z"],
+  ["New Year's Day 2027","2027-01-01T15:00:00Z"],
+  ["Thanksgiving Day 2027","2027-11-25T15:00:00Z"]
+ ]){
+  const closed=boot(instant);await closed.settle();await selectAndrews(closed);
+  assert.equal(closed.get("guideStart").disabled,true,label+" must not enable guided boarding");
+  assert.match(closed.get("planStatus").textContent,/No Coast RTA fixed-route service is scheduled today/,label+" must explain the holiday closure");
+  assert.match(closed.get("planFare").textContent,/No scheduled bus service/,label+" must not quote an active trip fare");
+ }
+ console.log("PASS: Christmas and New Year's Day holiday closures, plus next-year Thanksgiving, block guided journeys");
  const denied=boot("2026-10-27T11:00:00Z",null,null,"gps-denied");await denied.settle();await denied.click("locate");await denied.settle();
  assert.equal(denied.state().screen,"problem");
  assert.match(denied.get("problemText").textContent,/Permission denied/);
