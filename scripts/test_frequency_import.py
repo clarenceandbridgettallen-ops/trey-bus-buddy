@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity, audit_boarding_permissions
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -252,3 +252,49 @@ class FrequencyCoverageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BoardingPermissionAuditTests(unittest.TestCase):
+    def test_blank_types_are_regular_and_do_not_claim_accessibility(self):
+        rows = [{'trip_id':'T', 'stop_sequence':'1', 'stop_id':'A'}]
+        stored = [{'id':'T', 'stops':[{'seq':1,'stop':'A'}]}]
+        result = audit_boarding_permissions(rows, stored)
+        self.assertEqual(result['pickup_codes'], {'0':1})
+        self.assertEqual(result['drop_off_codes'], {'0':1})
+        self.assertEqual(result['rows_with_any_restriction'], 0)
+        self.assertFalse(result['safe_boarding_side_verified'])
+
+    def test_restricted_boarding_and_alighting_missing_from_snapshot(self):
+        rows = [
+            {'trip_id':'T', 'stop_sequence':'1', 'stop_id':'A',
+             'pickup_type':'1', 'drop_off_type':'0'},
+            {'trip_id':'T', 'stop_sequence':'2', 'stop_id':'B',
+             'pickup_type':'2', 'drop_off_type':'3'},
+        ]
+        stored = [{'id':'T','stops':[{'seq':1,'stop':'A'},
+                                    {'seq':2,'stop':'B'}]}]
+        result = audit_boarding_permissions(rows, stored)
+        self.assertEqual(result['rows_with_any_restriction'], 2)
+        self.assertEqual(result['pickup_codes'], {'1':1,'2':1})
+        self.assertEqual(result['drop_off_codes'], {'0':1,'3':1})
+        self.assertEqual(result['restricted_fields_not_represented_in_snapshot'], 3)
+        self.assertEqual(result['restricted_fields_missing_matching_snapshot_row'], 0)
+        self.assertEqual(len(result['restricted_examples']), 3)
+
+    def test_missing_snapshot_row_and_unknown_code_are_visible(self):
+        rows = [{'trip_id':'T','stop_sequence':'5','stop_id':'Z',
+                 'pickup_type':'unknown','drop_off_type':'1'}]
+        result = audit_boarding_permissions(rows, [])
+        self.assertEqual(result['rows_with_any_restriction'], 1)
+        self.assertEqual(result['restricted_fields_missing_matching_snapshot_row'], 2)
+        self.assertEqual(result['restricted_fields_not_represented_in_snapshot'], 0)
+        self.assertEqual(result['restricted_examples'][0]['stored_code'], None)
+
+    def test_matching_explicit_permissions_are_not_flagged(self):
+        rows = [{'trip_id':'T','stop_sequence':'7','stop_id':'Z',
+                 'pickup_type':'1','drop_off_type':'2'}]
+        stored = [{'id':'T','stops':[{'seq':7,'stop':'Z',
+                                    'pickup_type':'1','drop_off_type':'2'}]}]
+        result = audit_boarding_permissions(rows, stored)
+        self.assertEqual(result['rows_with_any_restriction'], 1)
+        self.assertEqual(result['restricted_fields_not_represented_in_snapshot'], 0)
