@@ -69,3 +69,7 @@ Only finished when actual origin → in-app destination → complete verified it
 - Every normal screen navigation now gets a small decorative bus animation and entrance transition, without delaying navigation. Existing full bus drive-off remains after address confirmation. Reduced-motion preference suppresses animations.
 - Feedback is collected in Tally, not sent directly to ChatGPT or email; daily automated review is NOT enabled until launch per user direction. Do not claim reports are monitored automatically. Avoid collecting precise GPS automatically.
 - Existing routing and trip safety gate unchanged. Android QA and Pages deployment still need verification.
+
+## Multi-transfer routing v42 (2026-10-30)
+- Commit `692bd475b60b69942a55ceb117b39023ef2624f1` expands one-destination search to four bus legs (three transfers), including up to 200m straight-line between alighting and next boarding stops. Search examines downstream stops of each stored trip and permits final stops up to 12km straight-line away. Transfer walking remains unverified; spoken guided travel is disabled for transfers between distinct stops.
+- IMPORTANT: Existing frequency-based timetable coverage is incomplete and blocks START MY TRIP; planner is only a possible route preview. Four-leg search has bounded frontier and is not exhaustive; real-world Georgetown test and browser runtime validation are pending. Do not claim it confirms service.
