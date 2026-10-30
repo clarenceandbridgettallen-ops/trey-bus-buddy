@@ -93,5 +93,56 @@ class RealPairAuditTests(unittest.TestCase):
                             for s in result['samples']))
 
 
+    def test_distinct_transfer_stops_precede_repeat_pairs(self):
+        # A second genuine interchange must not be crowded out by eight
+        # lexicographically earlier pairs at the first transfer center.
+        frequencies = self.frequencies + [
+            dict(self.frequencies[0], trip_id='c'),
+            dict(self.frequencies[1], trip_id='d'),
+        ]
+        trips = {**self.trips,
+                 'c': {'service': 'daily', 'route': 'C'},
+                 'd': {'service': 'daily', 'route': 'D'}}
+        times = self.times + [
+            dict(self.times[0], trip_id='c', stop_id='origin2'),
+            dict(self.times[1], trip_id='c', stop_id='hub2'),
+            dict(self.times[2], trip_id='d', stop_id='hub2'),
+            dict(self.times[3], trip_id='d', stop_id='destination2'),
+        ]
+        result = self.audit(frequencies=frequencies, trips=trips,
+                            stop_times=times, limit=2)
+        self.assertEqual(result['sample_count'], 2)
+        self.assertEqual(result['distinct_transfer_stop_ids_sampled'], 2)
+        self.assertEqual({s['stop_id'] for s in result['samples']},
+                         {'hub', 'hub2'})
+        self.assertEqual(result['distinct_route_pairs_sampled'], 2)
+
+    def test_restricted_alighting_or_boarding_not_sampled(self):
+        # GTFS 1 = prohibited; 2/3 = agency/driver arrangement, not a
+        # confirmed accessible boarding event. Fail closed in QA selection.
+        for restriction, index, value in [('drop_off_type', 1, '1'),
+                                          ('pickup_type', 2, '2'),
+                                          ('pickup_type', 2, '3'),
+                                          ('drop_off_type', 1, 'unknown')]:
+            with self.subTest(restriction=restriction, value=value):
+                times = [dict(row) for row in self.times]
+                times[index][restriction] = value
+                result = self.audit(stop_times=times)
+                self.assertEqual(result['sample_count'], 0)
+                field = ('restricted_alighting_visits_excluded'
+                         if restriction == 'drop_off_type'
+                         else 'restricted_boarding_visits_excluded')
+                self.assertEqual(result[field], 1)
+
+    def test_explicit_zero_pickup_and_dropoff_are_allowed_in_diagnostic(self):
+        times = [dict(row) for row in self.times]
+        times[1]['drop_off_type'] = '0'
+        times[2]['pickup_type'] = '0'
+        result = self.audit(stop_times=times)
+        self.assertEqual(result['sample_count'], 1)
+        self.assertEqual(result['restricted_alighting_visits_excluded'], 0)
+        self.assertEqual(result['restricted_boarding_visits_excluded'], 0)
+        self.assertNotIn('departure_seconds', str(result))
+
 if __name__ == '__main__':
     unittest.main()
