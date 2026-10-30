@@ -44,8 +44,8 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
                 str(row.get("service") or "").strip()
             )
 
-    official_pairs = {(route, dr) for route, dr, _ in official.values()}
-    stored_pairs = {(route, dr) for route, dr, _ in stored.values()}
+    official_pairs = {(fields[0], fields[1]) for fields in official.values()}
+    stored_pairs = {(fields[0], fields[1]) for fields in stored.values()}
     common = sorted(official.keys() & stored.keys())
     mismatches = [
         {"trip_id": tid, "official_route": official[tid][0],
@@ -96,9 +96,9 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
         "shared_trip_headsign_change_count": len(headsign_changes),
         "shared_trip_headsign_change_examples": headsign_changes[:20],
         "official_unspecified_direction_trip_count": sum(
-            dr == "(unspecified)" for _, dr, _ in official.values()),
+            fields[1] == "(unspecified)" for fields in official.values()),
         "stored_unspecified_direction_trip_count": sum(
-            dr == "(unspecified)" for _, dr, _ in stored.values()),
+            fields[1] == "(unspecified)" for fields in stored.values()),
         "schedule_times_verified": False,
         "safe_walking_routes_verified": False,
         "live_arrivals_verified": False,
