@@ -145,8 +145,9 @@ async function main(){
  assert.doesNotMatch(html,/footer\{position:sticky;/,"Footer must not regress to below-the-fold sticky positioning");
  console.log("PASS: fixed mobile Home/Back/report and NEXT layout safeguards (source-only)");
  assert.match(html,/id="dataStatus" role="status" aria-live="polite"/);
- // Approved v38 keeps raw feed diagnostics off the welcome screen; itinerary safety warnings remain separately tested.
- assert.match(html,/#dataStatus\{display:none!important\}/,"Technical feed diagnostics should stay off the welcome screen");
+ // Keep technical diagnostics visually off the welcome screen without hiding safety warnings from screen readers.
+ assert.match(html,/#dataStatus\{position:absolute!important;/,"Status should remain visually hidden but accessible");
+ assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/,"Do not remove safety warnings from the accessibility tree");
  assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
  const dateLabel=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",year:"numeric"}).format(new Date(journeys.downloaded_utc));
  assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match deterministic QA fixture");
