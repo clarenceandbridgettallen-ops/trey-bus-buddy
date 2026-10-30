@@ -1,4 +1,4 @@
-"""Read-only route/direction and trip-ID drift audit for official Coast RTA GTFS.
+"""Read-only route/direction/service and trip-ID drift audit for official Coast RTA GTFS.
 
 This does not verify a service date, departure, transfer, walk or live arrival.
 GTFS direction_id is optional and is not a compass direction.
@@ -7,7 +7,7 @@ from collections import Counter
 
 
 def compare_route_direction_coverage(official_routes, official_trips, stored_trips):
-    """Compare official trip route/direction/headsign with the stored public snapshot."""
+    """Compare official trip route/direction/headsign/service with stored snapshot."""
     names = {
         str(row.get("route_id", "")).strip():
         str(row.get("route_short_name") or row.get("route_long_name") or row.get("route_id") or "").strip()
@@ -31,7 +31,8 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
         if tid not in official:
             official[tid] = (
                 names[route_id], direction(row.get("direction_id")),
-                str(row.get("trip_headsign") or "").strip()
+                str(row.get("trip_headsign") or "").strip(),
+                str(row.get("service_id") or "").strip()
             )
     for row in stored_trips:
         tid = str(row.get("id", "")).strip()
@@ -39,7 +40,8 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
             stored[tid] = (
                 str(row.get("route") or "").strip(),
                 direction(row.get("direction")),
-                str(row.get("headsign") or "").strip()
+                str(row.get("headsign") or "").strip(),
+                str(row.get("service") or "").strip()
             )
 
     official_pairs = {(route, dr) for route, dr, _ in official.values()}
@@ -50,6 +52,11 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
          "stored_route": stored[tid][0], "official_direction": official[tid][1],
          "stored_direction": stored[tid][1]}
         for tid in common if official[tid][:2] != stored[tid][:2]
+    ]
+    service_changes = [
+        {"trip_id": tid, "official_service_id": official[tid][3],
+         "stored_service_id": stored[tid][3]}
+        for tid in common if official[tid][3] != stored[tid][3]
     ]
     headsign_changes = [
         {"trip_id": tid, "official_headsign": official[tid][2],
@@ -82,6 +89,10 @@ def compare_route_direction_coverage(official_routes, official_trips, stored_tri
         "stored_only_trip_examples": sorted(stored.keys() - official.keys())[:20],
         "shared_trip_route_direction_mismatch_count": len(mismatches),
         "shared_trip_route_direction_mismatch_examples": mismatches[:20],
+        "shared_trip_service_id_mismatch_count": len(service_changes),
+        "shared_trip_service_id_mismatch_examples": service_changes[:20],
+        "official_missing_service_id_trip_count": sum(not x[3] for x in official.values()),
+        "stored_missing_service_id_trip_count": sum(not x[3] for x in stored.values()),
         "shared_trip_headsign_change_count": len(headsign_changes),
         "shared_trip_headsign_change_examples": headsign_changes[:20],
         "official_unspecified_direction_trip_count": sum(
