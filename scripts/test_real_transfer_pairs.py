@@ -68,13 +68,13 @@ class RealPairAuditTests(unittest.TestCase):
         self.assertEqual(self.audit(trips=trips)['sample_count'], 0)
 
     def test_terminal_only_meeting_not_called_transfer(self):
-        # A arrives at its first stop and B departs at its last stop.
-        # That cannot establish an inbound bus followed by onward travel.
+        # Only A's first-stop arrival and B's last-stop departure share a
+        # location. Neither can establish A->B travel; clear reverse events.
         times = [
-            dict(self.times[0], stop_id='terminal'),
+            dict(self.times[0], stop_id='terminal', departure_time=''),
             dict(self.times[1], stop_id='other-a'),
             dict(self.times[2], stop_id='other-b'),
-            dict(self.times[3], stop_id='terminal'),
+            dict(self.times[3], stop_id='terminal', arrival_time=''),
         ]
         self.assertEqual(self.audit(stop_times=times)['sample_count'], 0)
 
