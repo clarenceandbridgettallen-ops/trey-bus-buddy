@@ -320,7 +320,11 @@ function calculate(){
      const candidate={stop:leg.to,arr:leg.arr,legs:[...path.legs,connection],used:[...path.used,leg.t.id]};
      const walk=distance(leg.to,destination);
      if(walk<=12000){
-      const score=(walk<=1800?0:100000)+walk*3+leg.arr+candidate.legs.length*15;
+      // Rank confirmed stop times and same-stop connections ahead of interpolated times or unverified transfer walks. This is only preview ranking, never walking-path certification.
+      const uncertain=candidate.legs.some(l=>l.depEstimated||l.arrEstimated);
+      const transferWalk=candidate.legs.some(l=>l.transferWalkMeters>0);
+      const firstWalk=distance(pos,candidate.legs[0].from);
+      const score=(walk<=1800?0:100000)+walk*3+leg.arr+candidate.legs.length*15+firstWalk/45+(uncertain?10000:0)+(transferWalk?10000:0);
       if(!best||score<best.score)best={legs:candidate.legs,score,finalWalkMeters:walk};
      }
      if(depth===3)continue;
