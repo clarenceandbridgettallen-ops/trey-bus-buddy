@@ -21,14 +21,14 @@ def audit_real_transfer_pairs(frequencies, trips, stop_times, calendar, exceptio
         raise ValueError('limit must be an integer between 0 and 25')
     if not isinstance(trips, dict):
         raise TypeError('trips must be indexed by trip_id')
-    if limit == 0:
-        return _summary([], 0, service_date)
     frequency_by_trip = defaultdict(list)
     for row in frequencies:
         if isinstance(row, dict):
             frequency_by_trip[str(row.get('trip_id', '')).strip()].append(row)
     eligible = {tid: rows[0] for tid, rows in frequency_by_trip.items()
                 if tid in trips and len(rows) == 1}
+    if limit == 0:
+        return _summary([], len(eligible), service_date)
     trip_stops = defaultdict(list)
     for row in stop_times:
         if isinstance(row, dict):
