@@ -58,3 +58,8 @@ Only finished when actual origin → in-app destination → complete verified it
 - User approved a visual-only Coast RTA-inspired refresh. Changed `index.html` to Preview v37 in commit `8435412b126f4a8f1bad6b53e972eddc464ae8f3`.
 - Added blue, pale sky, gold sunshine, coastal accents, refined cards/buttons, small transitions, reduced-motion preference, visible keyboard focus. Existing HTML screens and JS routing logic were preserved.
 - Verified source contains v37 and stylesheet changes after commit. Browser/device visual QA and live GitHub Pages deployment are NOT yet confirmed. Next: user acceptance test on Android, check contrast/scrolling and preserve accessible behavior.
+
+## Visual animation phase 2026-10-30
+- Committed Preview v40 `79a96810db8d3ea2f09751ab8b78a5106321b0cf`: decorative inline SVG blue/gold bus drives across screen after rider confirms starting address or destination; no external animation dependency.
+- Preserves route logic and original navigation. Transition is skipped for prefers-reduced-motion. Guard checks current screen/navigation version before continuing; visual overlay is aria-hidden.
+- Source commit confirmed; Android interaction and live Pages deployment still need verification. Next: test address-confirmation flow, navigation interruptions, reduced-motion and screen reader focus.
