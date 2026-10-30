@@ -25,6 +25,8 @@ on:
       - scripts/test_network.py
       - scripts/gtfs_accessibility_coverage.py
       - scripts/test_gtfs_accessibility_coverage.py
+      - scripts/gtfs_transfer_coverage.py
+      - scripts/test_gtfs_transfer_coverage.py
       - .github/workflows/sync-stops.yml
   schedule:
     - cron: '23 10 * * *'
@@ -62,6 +64,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_network.py'
       - name: Test GTFS accessibility metadata classification (offline)
         run: python -m unittest discover -s scripts -p 'test_gtfs_accessibility_coverage.py'
+      - name: Test official transfer-rule metadata audit (offline)
+        run: python -m unittest discover -s scripts -p 'test_gtfs_transfer_coverage.py'
       - name: Download and validate Coast RTA GTFS
         run: python scripts/sync_coast_rta.py
       - name: Commit verified stop inventory and audit
