@@ -10,14 +10,14 @@ class RouteDirectionCoverageTests(unittest.TestCase):
             {"route_id": "b", "route_short_name": "7"},
         ]
         self.trips = [
-            {"trip_id": "t1", "route_id": "a", "direction_id": "0", "trip_headsign": "Georgetown"},
-            {"trip_id": "t2", "route_id": "a", "direction_id": "1", "trip_headsign": "Myrtle Beach"},
-            {"trip_id": "t3", "route_id": "b", "direction_id": "0", "trip_headsign": "Conway"},
+            {"trip_id": "t1", "route_id": "a", "direction_id": "0", "trip_headsign": "Georgetown", "service_id": "WEEKDAY"},
+            {"trip_id": "t2", "route_id": "a", "direction_id": "1", "trip_headsign": "Myrtle Beach", "service_id": "WEEKEND"},
+            {"trip_id": "t3", "route_id": "b", "direction_id": "0", "trip_headsign": "Conway", "service_id": "WEEKDAY"},
         ]
         self.stored = [
-            {"id": "t1", "route": "16", "direction": "0", "headsign": "Georgetown"},
-            {"id": "t2", "route": "16", "direction": "1", "headsign": "Myrtle Beach"},
-            {"id": "t3", "route": "7", "direction": "0", "headsign": "Conway"},
+            {"id": "t1", "route": "16", "direction": "0", "headsign": "Georgetown", "service": "WEEKDAY"},
+            {"id": "t2", "route": "16", "direction": "1", "headsign": "Myrtle Beach", "service": "WEEKEND"},
+            {"id": "t3", "route": "7", "direction": "0", "headsign": "Conway", "service": "WEEKDAY"},
         ]
 
     def audit(self, **changes):
@@ -33,6 +33,8 @@ class RouteDirectionCoverageTests(unittest.TestCase):
         self.assertEqual(r["official_only_trip_count"], 0)
         self.assertEqual(r["shared_trip_route_direction_mismatch_count"], 0)
         self.assertFalse(r["schedule_times_verified"])
+        self.assertEqual(r["shared_trip_service_id_mismatch_count"], 0)
+        self.assertEqual(r["official_missing_service_id_trip_count"], 0)
 
     def test_direction_reversal_detected_for_same_trip_id(self):
         stored = [dict(t) for t in self.stored]
@@ -40,6 +42,35 @@ class RouteDirectionCoverageTests(unittest.TestCase):
         r = self.audit(stored_trips=stored)
         self.assertEqual(r["shared_trip_route_direction_mismatch_count"], 1)
         self.assertEqual(r["shared_trip_route_direction_mismatch_examples"][0]["trip_id"], "t1")
+
+    def test_service_id_change_detected_even_when_route_and_direction_match(self):
+        stored = [dict(t) for t in self.stored]
+        stored[0]["service"] = "WEEKEND"
+        r = self.audit(stored_trips=stored)
+        self.assertEqual(r["shared_trip_service_id_mismatch_count"], 1)
+        self.assertEqual(r["shared_trip_service_id_mismatch_examples"], [
+            {"trip_id": "t1", "official_service_id": "WEEKDAY",
+             "stored_service_id": "WEEKEND"}])
+        self.assertEqual(r["shared_trip_route_direction_mismatch_count"], 0)
+        self.assertEqual(r["shared_trip_headsign_change_count"], 0)
+        self.assertFalse(r["schedule_times_verified"])
+
+    def test_missing_service_ids_are_reported_without_inference(self):
+        official = [dict(t) for t in self.trips]
+        stored = [dict(t) for t in self.stored]
+        official[0].pop("service_id")
+        stored[1].pop("service")
+        r = self.audit(official_trips=official, stored_trips=stored)
+        self.assertEqual(r["official_missing_service_id_trip_count"], 1)
+        self.assertEqual(r["stored_missing_service_id_trip_count"], 1)
+        self.assertEqual(r["shared_trip_service_id_mismatch_count"], 2)
+
+    def test_headsign_change_does_not_change_service_id(self):
+        stored = [dict(t) for t in self.stored]
+        stored[0]["headsign"] = "Updated sign"
+        r = self.audit(stored_trips=stored)
+        self.assertEqual(r["shared_trip_headsign_change_count"], 1)
+        self.assertEqual(r["shared_trip_service_id_mismatch_count"], 0)
 
     def test_missing_route_direction_pair_detected(self):
         r = self.audit(stored_trips=self.stored[:1] + self.stored[2:])
