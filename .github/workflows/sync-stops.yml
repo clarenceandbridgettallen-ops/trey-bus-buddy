@@ -8,6 +8,8 @@ on:
       - scripts/test_stop_route_memberships.py
       - scripts/route_direction_coverage.py
       - scripts/test_route_direction_coverage.py
+      - scripts/headsign_coverage.py
+      - scripts/test_headsign_coverage.py
       - scripts/service_calendar.py
       - scripts/calendar_coverage.py
       - scripts/test_calendar_coverage.py
@@ -36,6 +38,8 @@ jobs:
           python-version: '3.12'
       - name: Test route-direction and trip-ID drift audit (offline)
         run: python -m unittest discover -s scripts -p 'test_route_direction_coverage.py'
+      - name: Test trip-headsign coverage and missing-label safety (offline)
+        run: python -m unittest discover -s scripts -p 'test_headsign_coverage.py'
       - name: Test official stop-route membership drift audit (offline)
         run: python -m unittest discover -s scripts -p 'test_stop_route_memberships.py'
       - name: Test GTFS frequency safety guard (offline)
