@@ -9,6 +9,8 @@ on:
       - scripts/test_service_calendar.py
       - scripts/frequency_windows.py
       - scripts/test_frequency_windows.py
+      - scripts/trip_transfer_diagnostic.py
+      - scripts/test_trip_transfer_diagnostic.py
       - scripts/audit_journeys.py
       - scripts/build_network.py
       - scripts/test_network.py
@@ -31,6 +33,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_service_calendar.py'
       - name: Test stop-level frequency windows (offline, no departure estimates)
         run: python -m unittest discover -s scripts -p 'test_frequency_windows.py'
+      - name: Test same-service-date trip transfer diagnostics (offline)
+        run: python -m unittest discover -s scripts -p 'test_trip_transfer_diagnostic.py'
       - name: Audit currently published GTFS snapshot (offline; not fresh feed)
         run: python scripts/audit_journeys.py
       - name: Test directed network invariants (offline)
