@@ -305,6 +305,8 @@ def main():
    print("GTFS STOP INVENTORY COMPARISON "+json.dumps(comparison,sort_keys=True),flush=True)
    route_memberships=compare_stop_route_memberships(stop_rows,route_rows,trips,times,stored.get("stops",[]))
    print("GTFS STOP ROUTE MEMBERSHIP COMPARISON "+json.dumps(route_memberships,sort_keys=True),flush=True)
+  else:
+   print("GTFS STOP INVENTORY COMPARISON unavailable: no stored snapshot",flush=True)
   journey_snapshot_path=ROOT/"data/coast-rta-journeys.json"
   if journey_snapshot_path.exists():
    stored_journeys=json.loads(journey_snapshot_path.read_text(encoding="utf-8"))
@@ -312,8 +314,6 @@ def main():
    print("GTFS ROUTE DIRECTION COVERAGE COMPARISON "+json.dumps(direction_report,sort_keys=True),flush=True)
   else:
    print("GTFS ROUTE DIRECTION COVERAGE COMPARISON unavailable: no stored journey snapshot",flush=True)
-  else:
-   print("GTFS STOP INVENTORY COMPARISON unavailable: no stored snapshot",flush=True)
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
    print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
