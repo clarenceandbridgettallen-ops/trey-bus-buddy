@@ -41,7 +41,7 @@ footer button{background:#fff}
 @media (prefers-reduced-motion:reduce){.screen.active{animation:none}button,a.big{transition:none}}
 @media (max-width:360px){.screen{padding:20px 13px}header strong{font-size:21px}button,a.big{font-size:19px}}
 /* Keep technical GTFS diagnostics out of the rider welcome layout. Existing safety notes on trip screens remain. */
-#dataStatus{display:none!important}
+#dataStatus{position:absolute!important;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
 /* v39: accessible journey timeline; original trip logic and safety gate retained */
 #planSteps{display:flex;flex-direction:column;gap:12px;width:100%}
