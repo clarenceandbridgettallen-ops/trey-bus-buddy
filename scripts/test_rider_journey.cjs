@@ -210,6 +210,20 @@ async function main(){
   assert.doesNotMatch(a.get("planStatus").textContent,/time is interpolated/i,"Published Route 14 departure must not be replaced by a tied interpolated boarding");
  await a.click("openFare");assert.equal(String(a.get("boardings").value),"1");
  assert.equal(a.get("fareTotal").textContent,"$1.00 estimated");
+ // Boardings are whole events. Decimal input must never underquote the fare.
+ a.get("payment").value="tap";
+ a.get("boardings").value="2.5";a.get("boardings").oninput();
+ assert.equal(a.get("fareTotal").textContent,"$3.00 estimated","Round fractional boarding counts up, not down");
+ a.get("boardings").value="9";a.get("boardings").oninput();
+ assert.equal(a.get("fareTotal").textContent,"$3.50 estimated","Same-device contactless 24-hour cap");
+ a.get("payment").value="cash";a.get("payment").onchange();
+ assert.equal(a.get("fareTotal").textContent,"$9.00 estimated","Cash does not receive contactless fare cap");
+ a.get("boardings").value="2.5";a.get("boardings").oninput();
+ assert.equal(a.get("fareTotal").textContent,"$3.00 estimated","Cash fare also rounds to whole boardings");
+ a.get("boardings").value="25";a.get("boardings").oninput();
+ assert.equal(a.get("fareTotal").textContent,"$20.00 estimated","Fare calculator caps the supported input range at 20");
+ a.get("boardings").value="1";a.get("payment").value="tap";a.get("payment").onchange();
+ console.log("PASS: fare calculator whole-boardings, cash, contactless cap, and input bounds (mocked)");
  await a.click("fareDone");await a.click("guideStart");
  assert.equal(a.state().screen,"guide");
  assert.ok(a.spoken.some(s=>s.includes("WALK TO YOUR FIRST STOP")));
