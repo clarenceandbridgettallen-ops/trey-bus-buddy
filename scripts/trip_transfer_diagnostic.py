@@ -5,7 +5,8 @@ walking allowance is NOT a verified accessible pedestrian route.
 """
 import re
 from datetime import datetime
-from frequency_windows import stop_window, transfer_feasibility_for_service_date
+from frequency_windows import (stop_window, transfer_feasibility_for_service_date,
+                               audit_frequency_anchor_order)
 from service_calendar import audit_frequency_service_date
 
 
@@ -79,6 +80,14 @@ def diagnose_trip_transfer(frequencies, trips, stop_times, calendar, exceptions,
 
     inbound_rows = [r for r in stop_times if str(r.get('trip_id', '')).strip() == pair[0]]
     outbound_rows = [r for r in stop_times if str(r.get('trip_id', '')).strip() == pair[1]]
+    # A valid selected stop window cannot redeem a corrupted timepoint elsewhere
+    # in either trip. A reversed intermediate segment or dwell makes the whole
+    # template unsafe even when the selected boarding offsets look plausible.
+    chronology = audit_frequency_anchor_order(
+        [{'trip_id': pair[0]}, {'trip_id': pair[1]}],
+        inbound_rows + outbound_rows)
+    if chronology['affected_template_count']:
+        return blocked('invalid_trip_timepoint_chronology')
     inbound = stop_window(frequency_by_trip[pair[0]][0], inbound_rows,
                           inbound_stop_id, 'arrival', inbound_stop_sequence)
     outbound = stop_window(frequency_by_trip[pair[1]][0], outbound_rows,
