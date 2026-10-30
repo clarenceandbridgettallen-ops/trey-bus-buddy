@@ -129,5 +129,27 @@ class TripTransferDiagnosticTests(unittest.TestCase):
         self.assertEqual(result['outbound_service'], 'active')
 
 
+    def test_corrupt_later_timepoint_blocks_otherwise_valid_transfer(self):
+        # The selected inbound X arrival looks plausible, but a later stop
+        # impossibly arrives before X departed. Reject the whole template.
+        corrupt = self.times + [
+            {'trip_id': 'in', 'stop_id': 'Z', 'stop_sequence': '3',
+             'arrival_time': '08:05:00', 'departure_time': '08:35:00',
+             'timepoint': '1'},
+        ]
+        result = self.check(stop_times=corrupt)
+        self.assertEqual(result['reason'], 'invalid_trip_timepoint_chronology')
+        self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+
+    def test_reversed_dwell_blocks_otherwise_valid_transfer(self):
+        # A later stop on the outbound template has impossible dwell times.
+        # Its error must not be ignored because the selected transfer is X.
+        corrupt = [dict(row) for row in self.times]
+        corrupt[3]['arrival_time'] = '08:55:00'
+        result = self.check(stop_times=corrupt)
+        self.assertEqual(result['reason'], 'invalid_trip_timepoint_chronology')
+        self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+
+
 if __name__ == '__main__':
     unittest.main()
