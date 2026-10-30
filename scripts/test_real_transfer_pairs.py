@@ -63,6 +63,21 @@ class RealPairAuditTests(unittest.TestCase):
                  for row in self.times]
         self.assertEqual(self.audit(stop_times=times)['sample_count'], 0)
 
+    def test_same_route_reboarding_not_called_a_transfer(self):
+        trips = {tid: dict(trip, route='SAME') for tid, trip in self.trips.items()}
+        self.assertEqual(self.audit(trips=trips)['sample_count'], 0)
+
+    def test_terminal_only_meeting_not_called_transfer(self):
+        # A arrives at its first stop and B departs at its last stop.
+        # That cannot establish an inbound bus followed by onward travel.
+        times = [
+            dict(self.times[0], stop_id='terminal'),
+            dict(self.times[1], stop_id='other-a'),
+            dict(self.times[2], stop_id='other-b'),
+            dict(self.times[3], stop_id='terminal'),
+        ]
+        self.assertEqual(self.audit(stop_times=times)['sample_count'], 0)
+
     def test_limit_and_invalid_limit(self):
         self.assertEqual(self.audit(limit=0)['sample_count'], 0)
         with self.assertRaises(ValueError):
