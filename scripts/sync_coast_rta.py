@@ -10,6 +10,7 @@ from route_direction_coverage import compare_route_direction_coverage
 from calendar_coverage import compare_calendar_coverage
 from headsign_coverage import compare_headsign_coverage
 from gtfs_accessibility_coverage import audit_gtfs_accessibility
+from gtfs_transfer_coverage import audit_gtfs_transfers
 ROOT=Path(__file__).resolve().parent.parent
 FEED="https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx"
 TRACKER="https://coastrta.transloc.com/routes/78/stops"
@@ -340,6 +341,8 @@ def main():
   if any(n not in names for n in required):raise RuntimeError("GTFS missing required files")
   def rows(n):return list(csv.DictReader(io.TextIOWrapper(z.open(names[n]),encoding="utf-8-sig")))
   stop_rows=rows("stops.txt");route_rows=rows("routes.txt");trips=rows("trips.txt");times=rows("stop_times.txt")
+  transfer_rows=rows("transfers.txt") if "transfers.txt" in names else []
+  print("GTFS OFFICIAL TRANSFER RULE COVERAGE "+json.dumps(audit_gtfs_transfers(transfer_rows,stop_rows,route_rows,trips,"transfers.txt" in names),sort_keys=True),flush=True)
   print("GTFS OFFICIAL STOP RECORD INTEGRITY "+json.dumps(inspect_stop_record_integrity(stop_rows,True),sort_keys=True),flush=True)
   print("GTFS ACCESSIBILITY METADATA COVERAGE "+json.dumps(audit_gtfs_accessibility(stop_rows,trips,names),sort_keys=True),flush=True)
   calendars=rows("calendar.txt") if "calendar.txt" in names else []
