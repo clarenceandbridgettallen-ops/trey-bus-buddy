@@ -90,10 +90,10 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys})})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -116,6 +116,18 @@ async function main(){
  await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
  console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
  const a=boot();await a.settle();
+ // Coast RTA's two distinct mapped stops near Coalition Dr / Holly Circle are 52 m apart,
+ // but published Route 15S trip sequences visit South Strand Medical Center between them.
+ // A nearby stop ID must not be silently treated as the same boarding point or direction.
+ const holly=stops.stops.find(s=>s.id==="TL-947");
+ const coalition=stops.stops.find(s=>s.id==="TL-948");
+ assert.ok(holly&&coalition,"Official Coalition/Holly Circle stop IDs changed: re-audit Trey boarding location");
+ const nearbyWarning=a.nearbyStopCaution(holly);
+ assert.match(nearbyWarning,/TL-948/,"Nearby distinct stop must be named with its official ID");
+ assert.match(nearbyWarning,/boarding side, and safe crossing/,"Do not certify an unverified pedestrian route");
+ assert.doesNotMatch(nearbyWarning,/opposite side|live arrival/i,"Do not invent stop side or vehicle data");
+ assert.equal(a.nearbyStopCaution({id:"QA-REMOTE",name:"Remote",lat:34.9,lon:-80.9}),"");
+ console.log("PASS: nearby distinct Coalition/Holly stop IDs trigger explicit non-certified boarding caution");
  // Static CSS guard; actual mobile scrolling, TalkBack and focus still need device testing.
  // A sticky footer placed after <main> is invisible on long screens until scrolled into view.
  assert.match(html,/footer\{position:fixed;left:50%;/,"Home/Back/report must be fixed to the viewport");
