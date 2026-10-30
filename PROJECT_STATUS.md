@@ -53,3 +53,8 @@ Only finished when actual origin → in-app destination → complete verified it
 - Added `scripts/test_network.py` (commit 0d85810e8fcfea6a48e2492d08007c587e72d4b6). Four equivalent synthetic tests passed locally before commit: direction, blank times, missing stop, duplicate stop, invalid coordinates. GitHub Actions execution is NOT verified.
 - No rider-facing code changed. Preview v36 routing failures remain. No real-world route or safe walking path verified.
 - Next: run network builder against repository's actual feed; validate directed connectivity, then implement timetable-based multi-transfer route search with deterministic fixtures and preserve pedestrian-safety restrictions.
+
+## Visual design phase 2026-10-30
+- User approved a visual-only Coast RTA-inspired refresh. Changed `index.html` to Preview v37 in commit `8435412b126f4a8f1bad6b53e972eddc464ae8f3`.
+- Added blue, pale sky, gold sunshine, coastal accents, refined cards/buttons, small transitions, reduced-motion preference, visible keyboard focus. Existing HTML screens and JS routing logic were preserved.
+- Verified source contains v37 and stylesheet changes after commit. Browser/device visual QA and live GitHub Pages deployment are NOT yet confirmed. Next: user acceptance test on Android, check contrast/scrolling and preserve accessible behavior.
