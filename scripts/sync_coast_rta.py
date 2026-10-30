@@ -9,6 +9,7 @@ from audit_real_transfer_pairs import audit_real_transfer_pairs
 from route_direction_coverage import compare_route_direction_coverage
 from calendar_coverage import compare_calendar_coverage
 from headsign_coverage import compare_headsign_coverage
+from gtfs_accessibility_coverage import audit_gtfs_accessibility
 ROOT=Path(__file__).resolve().parent.parent
 FEED="https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx"
 TRACKER="https://coastrta.transloc.com/routes/78/stops"
@@ -340,6 +341,7 @@ def main():
   def rows(n):return list(csv.DictReader(io.TextIOWrapper(z.open(names[n]),encoding="utf-8-sig")))
   stop_rows=rows("stops.txt");route_rows=rows("routes.txt");trips=rows("trips.txt");times=rows("stop_times.txt")
   print("GTFS OFFICIAL STOP RECORD INTEGRITY "+json.dumps(inspect_stop_record_integrity(stop_rows,True),sort_keys=True),flush=True)
+  print("GTFS ACCESSIBILITY METADATA COVERAGE "+json.dumps(audit_gtfs_accessibility(stop_rows,trips,names),sort_keys=True),flush=True)
   calendars=rows("calendar.txt") if "calendar.txt" in names else []
   exceptions=rows("calendar_dates.txt") if "calendar_dates.txt" in names else []
   routes={r["route_id"]:r.get("route_short_name","") or r.get("route_long_name","") for r in route_rows}
