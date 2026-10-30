@@ -11,6 +11,8 @@ on:
       - scripts/test_frequency_windows.py
       - scripts/trip_transfer_diagnostic.py
       - scripts/test_trip_transfer_diagnostic.py
+      - scripts/audit_real_transfer_pairs.py
+      - scripts/test_real_transfer_pairs.py
       - scripts/audit_journeys.py
       - scripts/build_network.py
       - scripts/test_network.py
@@ -35,6 +37,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_frequency_windows.py'
       - name: Test same-service-date trip transfer diagnostics (offline)
         run: python -m unittest discover -s scripts -p 'test_trip_transfer_diagnostic.py'
+      - name: Test real-feed pair sampling and fail-closed guards (offline)
+        run: python -m unittest discover -s scripts -p 'test_real_transfer_pairs.py'
       - name: Audit currently published GTFS snapshot (offline; not fresh feed)
         run: python scripts/audit_journeys.py
       - name: Test directed network invariants (offline)
