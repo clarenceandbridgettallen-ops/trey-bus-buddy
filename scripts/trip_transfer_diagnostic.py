@@ -78,6 +78,9 @@ def diagnose_trip_transfer(frequencies, trips, stop_times, calendar, exceptions,
         else:
             statuses.append('uncertain')
 
+    if any(not isinstance(row, dict) for row in stop_times):
+        return blocked('invalid_stop_time_row')
+
     inbound_rows = [r for r in stop_times if str(r.get('trip_id', '')).strip() == pair[0]]
     outbound_rows = [r for r in stop_times if str(r.get('trip_id', '')).strip() == pair[1]]
     # A valid selected stop window cannot redeem a corrupted timepoint elsewhere
@@ -88,6 +91,25 @@ def diagnose_trip_transfer(frequencies, trips, stop_times, calendar, exceptions,
         inbound_rows + outbound_rows)
     if chronology['affected_template_count']:
         return blocked('invalid_trip_timepoint_chronology')
+    # A trip's first-stop arrival is not proof of arriving aboard that bus,
+    # and its last-stop departure is not evidence of an onward ride. This
+    # guard belongs in the core diagnostic, not only the QA pair sampler.
+    def is_terminal_event(rows, stop_id, requested_sequence, first):
+        sequences = [int(row['stop_sequence']) for row in rows]
+        matches = [
+            row for row in rows
+            if str(row.get('stop_id', '')).strip() == stop_id
+            and (requested_sequence is None or
+                 str(row['stop_sequence']).strip() == str(requested_sequence).strip())
+        ]
+        if len(matches) != 1:
+            return False  # stop_window rejects missing or ambiguous visits.
+        selected_sequence = int(matches[0]['stop_sequence'])
+        return selected_sequence == (min(sequences) if first else max(sequences))
+
+    if (is_terminal_event(inbound_rows, in_stop, inbound_stop_sequence, True)
+            or is_terminal_event(outbound_rows, out_stop, outbound_stop_sequence, False)):
+        return blocked('terminal_stop_event_not_a_transfer')
     inbound = stop_window(frequency_by_trip[pair[0]][0], inbound_rows,
                           inbound_stop_id, 'arrival', inbound_stop_sequence)
     outbound = stop_window(frequency_by_trip[pair[1]][0], outbound_rows,
