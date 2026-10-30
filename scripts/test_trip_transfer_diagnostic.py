@@ -76,6 +76,22 @@ class TripTransferDiagnosticTests(unittest.TestCase):
         self.assertEqual(self.check(frequencies=self.freq + [self.freq[0]])['reason'],
                          'missing_or_ambiguous_frequency_row')
 
+    def test_different_stop_ids_do_not_imply_a_walkable_transfer(self):
+        # Overlapping headway windows cannot certify a pedestrian connection.
+        result = self.check(outbound_stop_id='Y', outbound_stop_sequence=2)
+        self.assertEqual(result['reason'],
+                         'different_transfer_stops_no_verified_walk')
+        self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+        self.assertFalse(result['safe_walking_route_verified'])
+
+    def test_missing_transfer_stop_identity_fails_closed(self):
+        for inbound, outbound in [('', 'X'), ('X', ''), (None, 'X')]:
+            with self.subTest(inbound=inbound, outbound=outbound):
+                result = self.check(inbound_stop_id=inbound,
+                                    outbound_stop_id=outbound)
+                self.assertEqual(result['reason'], 'missing_transfer_stop_id')
+                self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+
     def test_repeated_stop_requires_exact_sequence(self):
         duplicate = dict(self.times[1], stop_sequence='3')
         result = self.check(stop_times=self.times + [duplicate],
