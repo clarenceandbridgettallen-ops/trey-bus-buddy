@@ -85,7 +85,7 @@ class StopRouteMembershipTests(unittest.TestCase):
         stored = [dict(row) for row in self.stored if row['id'] != 'C']
         stored[1]['routes'] = []
         result = self.audit(stored_stops=stored)
-        self.assertEqual(result['official_only_membership_count'], 2)
+        self.assertEqual(result['official_only_membership_count'], 3)
         self.assertEqual(result['official_stop_ids_missing_from_snapshot'], ['C'])
         self.assertFalse(result['safe_walking_routes_verified'])
 
