@@ -3,6 +3,12 @@
 const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict"),path=require("node:path");
 const root=path.resolve(__dirname,"..");
 const html=fs.readFileSync(path.join(root,"index.html"),"utf8");
+// Critical route-data and timetable warnings must remain in the accessibility tree.
+// Hiding a role=status region with display:none suppresses screen-reader announcements.
+assert.match(html, /id="dataStatus"[^>]*role="status"[^>]*aria-live="polite"/);
+assert.match(html, /#dataStatus\\{position:absolute!important;/);
+assert.doesNotMatch(html, /#dataStatus\\{display:none!important\\}/);
+console.log("PASS: Coast RTA data/frequency warnings remain available to screen readers (source-level)");
 const committedStops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
 const committedJourneys=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-journeys.json"),"utf8"));
 // Test clocks are fixed in October 2026. Keep fixture timestamps fixed as well,
