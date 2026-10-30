@@ -117,7 +117,7 @@ async function main(){
  console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
  const a=boot();await a.settle();
  // Coast RTA's two distinct mapped stops near Coalition Dr / Holly Circle are 52 m apart,
- // but published Route 15S trip sequences visit South Strand Medical Center between them.
+ // but the stored Route 15S trip sequence has 24 intermediate stops from Holly Circle to Coalition Dr.
  // A nearby stop ID must not be silently treated as the same boarding point or direction.
  const holly=stops.stops.find(s=>s.id==="TL-947");
  const coalition=stops.stops.find(s=>s.id==="TL-948");
