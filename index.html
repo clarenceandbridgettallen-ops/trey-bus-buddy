@@ -40,8 +40,10 @@ footer button{background:#fff}
 @media (hover:hover){button:hover:not(:disabled),a.big:hover{background:#eef8fe}button.primary:hover:not(:disabled),a.primary:hover{background:#064d7d}}
 @media (prefers-reduced-motion:reduce){.screen.active{animation:none}button,a.big{transition:none}}
 @media (max-width:360px){.screen{padding:20px 13px}header strong{font-size:21px}button,a.big{font-size:19px}}
+/* Keep technical GTFS diagnostics out of the rider welcome layout. Existing safety notes on trip screens remain. */
+#dataStatus{display:none!important}
 </style></head><body>
-<header><strong>🚌 Bus Buddy</strong><small>Preview v37</small></header>
+<header><strong>🚌 Bus Buddy</strong><small>Preview v38</small></header>
 <p id="dataStatus" role="status" aria-live="polite">Loading stored Coast RTA route data. No live arrivals.</p>
 <main>
 <section class="screen active" id="welcome"><button class="primary" id="locate">📍 I AM HERE</button><button id="typeStart">⌨️ ENTER LOCATION</button></section>
