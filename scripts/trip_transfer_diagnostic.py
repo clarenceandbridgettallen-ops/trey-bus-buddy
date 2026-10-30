@@ -46,6 +46,16 @@ def diagnose_trip_transfer(frequencies, trips, stop_times, calendar, exceptions,
     if not isinstance(frequencies, list) or not isinstance(stop_times, list):
         return blocked('invalid_feed_records')
 
+    # Without a separately verified pedestrian route, two different stop IDs
+    # are NOT a validated transfer location, regardless of temporal overlap.
+    # This is a diagnostic for same-stop transfers only, not walk transfers.
+    in_stop = str(inbound_stop_id or '').strip()
+    out_stop = str(outbound_stop_id or '').strip()
+    if not in_stop or not out_stop:
+        return blocked('missing_transfer_stop_id')
+    if in_stop != out_stop:
+        return blocked('different_transfer_stops_no_verified_walk')
+
     frequency_by_trip = {}
     for row in frequencies:
         if not isinstance(row, dict):
