@@ -337,6 +337,21 @@ async function main(){
   assert.match(short.get("planStatus").textContent,/checks up to three transfers/,"A failed search must disclose the current three-transfer search limit");
   assert.match(short.get("planStatus").textContent,/does not mean Coast RTA has no service/,"A failed search must not be mistaken for proof of no service");
  console.log("PASS: synthetic transfer under five minutes is rejected");
+ // A distinct mapped transfer stop near Conway Terminal is NOT a verified walk.
+ // This is a synthetic trip fixture, not an actual Coast RTA connection.
+ const crossStopFixture=syntheticTransfer("09:15:00");
+ const otherConwayStop=stops.stops.find(s=>s.id==="TL-365");
+ assert.ok(otherConwayStop&&otherConwayStop.id!==interchange.id,"Distinct nearby Conway transfer stop fixture missing");
+ crossStopFixture.trips[1].stops[0].stop=otherConwayStop.id;
+ const crossStop=boot("2026-10-27T11:00:00Z",null,crossStopFixture);await crossStop.settle();await selectAndrews(crossStop);
+ assert.match(crossStop.get("planFare").textContent,/^2 buses · 1 transfer/,"Keep cross-stop route as preview");
+ assert.match(crossStop.get("planStatus").textContent,/WARNING: This itinerary requires walking between different transfer stops/);
+ assert.match(crossStop.get("planStatus").textContent,/up to [0-9]+ meters straight-line/);
+ assert.match(crossStop.get("planStatus").textContent,/No safe or accessible pedestrian route, crossing, or boarding side has been verified/);
+ assert.equal(crossStop.get("guideStart").disabled,true,"Cross-stop transfer must never authorize spoken guidance");
+ await crossStop.click("guideStart");
+ assert.equal(crossStop.state().screen,"itinerary","Disabled cross-stop trip must remain in preview");
+ console.log("PASS: synthetic cross-stop transfer displays prominent walking safety warning and blocks guided trip");
  const uncertainArrival=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[],"arrival"));await uncertainArrival.settle();await selectAndrews(uncertainArrival);
  assert.equal(uncertainArrival.get("guideStart").disabled,true,"Interpolated transfer arrival must not be advertised as a confirmed connection");
  assert.match(uncertainArrival.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
