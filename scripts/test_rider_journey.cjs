@@ -199,6 +199,8 @@ async function main(){
  assert.equal(a.state().journeys.trips.length,journeys.trips.length);
  await selectAndrews(a);
  assert.match(a.get("planFare").textContent,/^1 bus · 0 transfers/);
+  assert.equal(a.get("guideStart").disabled,false,"When official and interpolated departures tie, prefer the published direct boarding from the confirmed origin");
+  assert.doesNotMatch(a.get("planStatus").textContent,/time is interpolated/i,"Published Route 14 departure must not be replaced by a tied interpolated boarding");
  await a.click("openFare");assert.equal(String(a.get("boardings").value),"1");
  assert.equal(a.get("fareTotal").textContent,"$1.00 estimated");
  await a.click("fareDone");await a.click("guideStart");
@@ -332,7 +334,7 @@ async function main(){
  const short=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:04:00"));await short.settle();await selectAndrews(short);
  assert.equal(short.get("guideStart").disabled,true);
  assert.match(short.get("planStatus").textContent,/could not confirm a scheduled bus connection/);
-  assert.match(short.get("planStatus").textContent,/currently checks direct buses and journeys with one transfer only/,"A failed search must disclose the one-transfer routing limit");
+  assert.match(short.get("planStatus").textContent,/checks up to three transfers/,"A failed search must disclose the current three-transfer search limit");
   assert.match(short.get("planStatus").textContent,/does not mean Coast RTA has no service/,"A failed search must not be mistaken for proof of no service");
  console.log("PASS: synthetic transfer under five minutes is rejected");
  const uncertainArrival=boot("2026-10-27T11:00:00Z",null,syntheticTransfer("09:10:00",[],"arrival"));await uncertainArrival.settle();await selectAndrews(uncertainArrival);
