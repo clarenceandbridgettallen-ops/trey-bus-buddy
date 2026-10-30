@@ -6,6 +6,8 @@ on:
       - scripts/sync_coast_rta.py
       - scripts/test_frequency_import.py
       - scripts/test_stop_route_memberships.py
+      - scripts/route_direction_coverage.py
+      - scripts/test_route_direction_coverage.py
       - scripts/service_calendar.py
       - scripts/test_service_calendar.py
       - scripts/frequency_windows.py
@@ -30,6 +32,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Test route-direction and trip-ID drift audit (offline)
+        run: python -m unittest discover -s scripts -p 'test_route_direction_coverage.py'
       - name: Test official stop-route membership drift audit (offline)
         run: python -m unittest discover -s scripts -p 'test_stop_route_memberships.py'
       - name: Test GTFS frequency safety guard (offline)
