@@ -30,25 +30,31 @@ def audit_real_transfer_pairs(frequencies, trips, stop_times, calendar, exceptio
     eligible = {tid: rows[0] for tid, rows in frequency_by_trip.items()
                 if tid in trips and len(rows) == 1}
     trip_stops = defaultdict(list)
-    arrivals, departures = defaultdict(list), defaultdict(list)
     for row in stop_times:
-        if not isinstance(row, dict):
+        if isinstance(row, dict):
+            tid = str(row.get('trip_id', '')).strip()
+            if tid in eligible:
+                trip_stops[tid].append(row)
+
+    arrivals, departures = defaultdict(list), defaultdict(list)
+    for tid, rows in trip_stops.items():
+        try:
+            sequences = [int(row['stop_sequence']) for row in rows]
+        except (KeyError, TypeError, ValueError):
             continue
-        tid = str(row.get('trip_id', '')).strip()
-        if tid not in eligible:
+        if len(sequences) < 2 or len(set(sequences)) != len(sequences):
             continue
-        trip_stops[tid].append(row)
-        stop_id = str(row.get('stop_id', '')).strip()
-        sequence = str(row.get('stop_sequence', '')).strip()
-        if not stop_id or not sequence.isdecimal():
-            continue
-        # timepoint=0 values are approximate, not candidate anchors.
-        if str(row.get('timepoint', '')).strip() not in ('', '1'):
-            continue
-        if str(row.get('arrival_time', '')).strip():
-            arrivals[stop_id].append((tid, int(sequence)))
-        if str(row.get('departure_time', '')).strip():
-            departures[stop_id].append((tid, int(sequence)))
+        first, last = min(sequences), max(sequences)
+        for row, sequence in zip(rows, sequences):
+            stop_id = str(row.get('stop_id', '')).strip()
+            if not stop_id or str(row.get('timepoint', '')).strip() not in ('', '1'):
+                continue
+            # An arrival at a trip's first stop is not evidence of arriving
+            # on a bus; a departure at its last stop is not onward travel.
+            if sequence > first and str(row.get('arrival_time', '')).strip():
+                arrivals[stop_id].append((tid, sequence))
+            if sequence < last and str(row.get('departure_time', '')).strip():
+                departures[stop_id].append((tid, sequence))
 
     samples = []
     seen = set()
@@ -57,6 +63,10 @@ def audit_real_transfer_pairs(frequencies, trips, stop_times, calendar, exceptio
         for inbound_tid, inbound_seq in sorted(arrivals[stop_id])[:16]:
             for outbound_tid, outbound_seq in sorted(departures[stop_id])[:16]:
                 if inbound_tid == outbound_tid:
+                    continue
+                # A transfer audit must compare distinct route labels, not
+                # merely two runs of the same route at its terminal.
+                if trips[inbound_tid].get('route') == trips[outbound_tid].get('route'):
                     continue
                 key = (inbound_tid, inbound_seq, outbound_tid, outbound_seq, stop_id)
                 if key in seen:
