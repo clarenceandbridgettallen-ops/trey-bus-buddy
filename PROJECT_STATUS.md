@@ -63,3 +63,9 @@ Only finished when actual origin → in-app destination → complete verified it
 - Committed Preview v40 `79a96810db8d3ea2f09751ab8b78a5106321b0cf`: decorative inline SVG blue/gold bus drives across screen after rider confirms starting address or destination; no external animation dependency.
 - Preserves route logic and original navigation. Transition is skipped for prefers-reduced-motion. Guard checks current screen/navigation version before continuing; visual overlay is aria-hidden.
 - Source commit confirmed; Android interaction and live Pages deployment still need verification. Next: test address-confirmation flow, navigation interruptions, reduced-motion and screen reader focus.
+
+## Feedback and animations phase 2026-10-30
+- Preview v41 commit `4ec460f436510d937099fd84a16c9f4e061ea46d`: replaced broken copy-only feedback with embedded published Tally form `YjjDDq` and browser fallback. Form already existed, was published, and had 0 submissions at inspection. Actual user submission through embedded iframe not yet verified.
+- Every normal screen navigation now gets a small decorative bus animation and entrance transition, without delaying navigation. Existing full bus drive-off remains after address confirmation. Reduced-motion preference suppresses animations.
+- Feedback is collected in Tally, not sent directly to ChatGPT or email; daily automated review is NOT enabled until launch per user direction. Do not claim reports are monitored automatically. Avoid collecting precise GPS automatically.
+- Existing routing and trip safety gate unchanged. Android QA and Pages deployment still need verification.
