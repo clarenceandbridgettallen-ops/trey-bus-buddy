@@ -9,6 +9,8 @@ on:
       - scripts/route_direction_coverage.py
       - scripts/test_route_direction_coverage.py
       - scripts/service_calendar.py
+      - scripts/calendar_coverage.py
+      - scripts/test_calendar_coverage.py
       - scripts/test_service_calendar.py
       - scripts/frequency_windows.py
       - scripts/test_frequency_windows.py
@@ -40,6 +42,8 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_frequency_import.py'
       - name: Test GTFS service calendar classification (offline)
         run: python -m unittest discover -s scripts -p 'test_service_calendar.py'
+      - name: Test official calendar and exception parity audit (offline)
+        run: python -m unittest discover -s scripts -p 'test_calendar_coverage.py'
       - name: Test stop-level frequency windows (offline, no departure estimates)
         run: python -m unittest discover -s scripts -p 'test_frequency_windows.py'
       - name: Test same-service-date trip transfer diagnostics (offline)
