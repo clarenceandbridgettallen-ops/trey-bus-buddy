@@ -7,6 +7,7 @@ from service_calendar import audit_frequency_service_date
 from frequency_windows import audit_frequency_boarding_windows, audit_frequency_anchor_order
 from audit_real_transfer_pairs import audit_real_transfer_pairs
 from route_direction_coverage import compare_route_direction_coverage
+from calendar_coverage import compare_calendar_coverage
 ROOT=Path(__file__).resolve().parent.parent
 FEED="https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx"
 TRACKER="https://coastrta.transloc.com/routes/78/stops"
@@ -312,6 +313,8 @@ def main():
    stored_journeys=json.loads(journey_snapshot_path.read_text(encoding="utf-8"))
    direction_report=compare_route_direction_coverage(route_rows,trips,stored_journeys.get("trips",[]))
    print("GTFS ROUTE DIRECTION COVERAGE COMPARISON "+json.dumps(direction_report,sort_keys=True),flush=True)
+   calendar_drift=compare_calendar_coverage(calendars,exceptions,stored_journeys.get("calendar",[]),stored_journeys.get("exceptions",[]))
+   print("GTFS CALENDAR AND EXCEPTION PARITY "+json.dumps(calendar_drift,sort_keys=True),flush=True)
   else:
    print("GTFS ROUTE DIRECTION COVERAGE COMPARISON unavailable: no stored journey snapshot",flush=True)
   if frequency_rows:
