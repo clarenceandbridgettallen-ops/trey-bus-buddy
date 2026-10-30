@@ -134,6 +134,33 @@ async function main(){
  assert.doesNotMatch(nearbyWarning,/opposite side|live arrival/i,"Do not invent stop side or vehicle data");
  assert.equal(a.nearbyStopCaution({id:"QA-REMOTE",name:"Remote",lat:34.9,lon:-80.9}),"");
  console.log("PASS: nearby distinct Coalition/Holly stop IDs trigger explicit non-certified boarding caution");
+
+ // The same stop-ID caution must travel with the itinerary and spoken step text,
+ // not only appear on the separate nearest-stop screen. Synthetic duplicate only.
+ for(const expression of [
+  "+sameNameStopCaution(first.from)+nearbyDistinctStopCaution(first.from)",
+  "+sameNameStopCaution(l.from)+nearbyDistinctStopCaution(l.from)",
+  "+sameNameStopCaution(l.to)+nearbyDistinctStopCaution(l.to)",
+  "+sameNameStopCaution(plan.legs[i+1].from)+nearbyDistinctStopCaution(plan.legs[i+1].from)",
+  "+sameNameStopCaution(plan.legs.at(-1).to)+nearbyDistinctStopCaution(plan.legs.at(-1).to)"
+ ])assert.ok(html.includes(expression),"Missing distinct-stop caution in a trip instruction: "+expression);
+ const syntheticNeighbor={...origin,id:"QA-NEAR-GEORGETOWN",name:"QA Nearby Separate Boarding Stop",lat:origin.lat+0.0001};
+ stops.stops.push(syntheticNeighbor);
+ try{
+  const warnedItinerary=boot("2026-10-27T11:00:00Z",null,syntheticTransfer());
+  await warnedItinerary.settle();
+  await selectAndrews(warnedItinerary);
+  const cards=warnedItinerary.get("planSteps").children.filter(x=>x.tagName==="ARTICLE");
+  const details=cards.map(card=>card.children.find(x=>x.tagName==="P")?.textContent||"");
+  assert.ok(details.filter(x=>x.includes("QA-NEAR-GEORGETOWN")).length>=2,
+   "First-stop and boarding instructions must identify nearby distinct stop IDs");
+  assert.ok(details.some(x=>/boarding side, and safe crossing/.test(x)),
+   "The itinerary must not certify an unknown crossing");
+ }finally{
+  stops.stops.pop();
+ }
+ console.log("PASS: synthetic journey carries nearby distinct-stop warnings into trip steps (not a live route test)");
+
  // Static CSS guard; actual mobile scrolling, TalkBack and focus still need device testing.
  // A sticky footer placed after <main> is invisible on long screens until scrolled into view.
  assert.match(html,/footer\{position:fixed;left:50%;/,"Home/Back/report must be fixed to the viewport");
