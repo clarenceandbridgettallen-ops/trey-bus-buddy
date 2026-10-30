@@ -64,8 +64,10 @@ button.journey-toggle{width:auto;min-height:44px;padding:8px 13px;font-size:15px
 .buddy-mini-bus{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:0;z-index:101;font-size:26px;pointer-events:none;animation:buddy-zoom .68s ease-in-out forwards;filter:drop-shadow(0 2px 2px #7eb8d2)}
 @keyframes buddy-zoom{0%{transform:translateX(-65px) rotate(-5deg);opacity:0}20%{opacity:1}100%{transform:translateX(calc(100vw + 65px));opacity:0}}
 @media(prefers-reduced-motion:reduce){.screen.active{animation:none}.buddy-mini-bus{display:none}}
+
+/* v43: show transfer walk distinctly from same-platform connections */
 </style></head><body>
-<header><strong>🚌 Bus Buddy</strong><small>Preview v42</small></header>
+<header><strong>🚌 Bus Buddy</strong><small>Preview v43</small></header>
 <p id="dataStatus" role="status" aria-live="polite">Loading stored Coast RTA route data. No live arrivals.</p>
 <main>
 <section class="screen active" id="welcome"><button class="primary" id="locate">📍 I AM HERE</button><button id="typeStart">⌨️ ENTER LOCATION</button></section>
@@ -308,7 +310,7 @@ function calculate(){
  for(let depth=0;depth<4&&frontier.length;depth++){
   const next=[];
   for(const path of frontier){
-   const nearby=depth===0?[path.stop]:official.stops.filter(x=>distance(path.stop,x)<=200);
+   const nearby=depth===0?[path.stop]:official.stops.filter(x=>departures.has(x.id)&&distance(path.stop,x)<=1200).sort((x,y)=>distance(path.stop,x)-distance(path.stop,y)).slice(0,20);
    for(const boarding of nearby){
     const transferMeters=depth?distance(path.stop,boarding):0;
     for(const leg of departures.get(boarding.id)||[]){
