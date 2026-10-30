@@ -283,6 +283,53 @@ def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  return {"file_present":bool(file_present),"row_count":0,
          "status":"empty" if file_present else "absent"}
 
+def audit_boarding_permissions(stop_times, stored_trips):
+ """Read-only GTFS pickup/drop-off audit; never certifies boarding or walking.
+
+ GTFS empty pickup_type/drop_off_type defaults to 0 (regular service).
+ Codes 1, 2, 3 and unknown codes must not be treated as ordinary boarding.
+ The current rider snapshot omits these fields, so report any lost restrictions.
+ """
+ stored={}
+ for trip in stored_trips:
+  tid=str(trip.get("id","")).strip()
+  for stop in trip.get("stops",[]):
+   key=(tid,str(stop.get("seq","")).strip(),str(stop.get("stop","")).strip())
+   stored[key]=stop
+ counts={"pickup_type":{},"drop_off_type":{}}
+ restricted_rows=0;missing_snapshot=0;unrepresented=0;examples=[]
+ for row in stop_times:
+  key=(str(row.get("trip_id","")).strip(),
+       str(row.get("stop_sequence","")).strip(),
+       str(row.get("stop_id","")).strip())
+  snapshot=stored.get(key)
+  restricted=False
+  for field in ("pickup_type","drop_off_type"):
+   code=str(row.get(field,"") or "").strip() or "0"
+   counts[field][code]=counts[field].get(code,0)+1
+   if code=="0":continue
+   restricted=True
+   if snapshot is None:
+    missing_snapshot+=1
+   elif str(snapshot.get(field,"") or "").strip()!=code:
+    unrepresented+=1
+   if len(examples)<12:
+    examples.append({"trip_id":key[0],"stop_sequence":key[1],
+                     "stop_id":key[2],"field":field,"official_code":code,
+                     "stored_code":None if snapshot is None else snapshot.get(field)})
+  if restricted:restricted_rows+=1
+ return {"status":"read_only_no_boarding_authorization",
+         "official_stop_time_rows":len(stop_times),
+         "pickup_codes":counts["pickup_type"],
+         "drop_off_codes":counts["drop_off_type"],
+         "rows_with_any_restriction":restricted_rows,
+         "restricted_fields_missing_matching_snapshot_row":missing_snapshot,
+         "restricted_fields_not_represented_in_snapshot":unrepresented,
+         "restricted_examples":examples[:12],
+         "safe_boarding_side_verified":False,
+         "accessible_pedestrian_path_verified":False}
+
+
 def main():
  raw=get(FEED)
  if not zipfile.is_zipfile(io.BytesIO(raw)):raise RuntimeError("Coast RTA feed did not return a valid ZIP")
@@ -320,6 +367,9 @@ def main():
    print("GTFS CALENDAR AND EXCEPTION PARITY "+json.dumps(calendar_drift,sort_keys=True),flush=True)
   else:
    print("GTFS ROUTE DIRECTION COVERAGE COMPARISON unavailable: no stored journey snapshot",flush=True)
+  if journey_snapshot_path.exists():
+   permissions=audit_boarding_permissions(times,stored_journeys.get("trips",[]))
+   print("GTFS BOARDING AND ALIGHTING PERMISSION AUDIT "+json.dumps(permissions,sort_keys=True),flush=True)
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
    print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
