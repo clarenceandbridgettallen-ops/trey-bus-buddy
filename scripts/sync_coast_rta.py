@@ -192,6 +192,71 @@ def compare_stop_inventory(official_rows, stored_rows):
          "coordinate_changes_over_100m":moved[:20],
          "name_changes_count":len(renamed),"name_changes":renamed[:20]}
 
+
+def compare_stop_route_memberships(official_stops, official_routes, official_trips,
+                                   official_stop_times, stored_stops):
+ """Read-only route membership drift audit; stop ID parity alone is insufficient.
+
+ Route labels follow the published snapshot importer. These are GTFS variants,
+ not the agency's public count of fixed routes. No walkability is inferred.
+ """
+ from collections import defaultdict
+ official_ids={str(s.get("stop_id","")).strip() for s in official_stops
+               if str(s.get("stop_id","")).strip()}
+ stored_ids={str(s.get("id","")).strip() for s in stored_stops
+             if str(s.get("id","")).strip()}
+ route_names={str(r.get("route_id","")).strip():
+              str(r.get("route_short_name","") or r.get("route_long_name","")).strip()
+              for r in official_routes if str(r.get("route_id","")).strip()}
+ trip_routes={str(t.get("trip_id","")).strip():str(t.get("route_id","")).strip()
+              for t in official_trips if str(t.get("trip_id","")).strip()}
+ official=defaultdict(set)
+ unknown_stops=unknown_trips=unknown_routes=0
+ for row in official_stop_times:
+  sid=str(row.get("stop_id","")).strip()
+  tid=str(row.get("trip_id","")).strip()
+  if sid not in official_ids:
+   unknown_stops+=1
+   continue
+  if tid not in trip_routes:
+   unknown_trips+=1
+   continue
+  route=route_names.get(trip_routes[tid])
+  if not route:
+   unknown_routes+=1
+   continue
+  official[sid].add(route)
+ stored=defaultdict(set)
+ for row in stored_stops:
+  sid=str(row.get("id","")).strip()
+  routes=row.get("routes",[])
+  if sid and isinstance(routes,list):
+   stored[sid].update(str(route).strip() for route in routes
+                      if str(route).strip())
+ official_pairs={(sid,route) for sid,routes in official.items() for route in routes}
+ stored_pairs={(sid,route) for sid,routes in stored.items() for route in routes}
+ added=sorted(official_pairs-stored_pairs)
+ removed=sorted(stored_pairs-official_pairs)
+ examples=lambda pairs:[{"stop_id":sid,"route":route} for sid,route in pairs[:20]]
+ return {
+  "status":"read_only_official_gtfs_vs_stored_route_memberships",
+  "official_stop_ids":len(official_ids),
+  "stored_stop_ids":len(stored_ids),
+  "official_stop_ids_missing_from_snapshot":sorted(official_ids-stored_ids)[:20],
+  "snapshot_stop_ids_missing_from_official":sorted(stored_ids-official_ids)[:20],
+  "official_route_stop_memberships":len(official_pairs),
+  "stored_route_stop_memberships":len(stored_pairs),
+  "official_only_membership_count":len(added),
+  "official_only_membership_examples":examples(added),
+  "stored_only_membership_count":len(removed),
+  "stored_only_membership_examples":examples(removed),
+  "unknown_stop_references":unknown_stops,
+  "unknown_trip_references":unknown_trips,
+  "unknown_route_references":unknown_routes,
+  "safe_walking_routes_verified":False,
+  "live_arrivals_verified":False,
+ }
+
 def check_frequency_coverage(file_present, frequency_rows, trip_ids):
  """Fail closed when the agency supplies frequency-based trips we cannot schedule safely.
 
@@ -237,6 +302,8 @@ def main():
    print("GTFS STORED STOP RECORD INTEGRITY "+json.dumps(inspect_stop_record_integrity(stored.get("stops",[]),False),sort_keys=True),flush=True)
    comparison=compare_stop_inventory(stop_rows,stored.get("stops",[]))
    print("GTFS STOP INVENTORY COMPARISON "+json.dumps(comparison,sort_keys=True),flush=True)
+   route_memberships=compare_stop_route_memberships(stop_rows,route_rows,trips,times,stored.get("stops",[]))
+   print("GTFS STOP ROUTE MEMBERSHIP COMPARISON "+json.dumps(route_memberships,sort_keys=True),flush=True)
   else:
    print("GTFS STOP INVENTORY COMPARISON unavailable: no stored snapshot",flush=True)
   if frequency_rows:
