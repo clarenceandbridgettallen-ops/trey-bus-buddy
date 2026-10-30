@@ -75,7 +75,8 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const get=id=>{if(!els.has(id))els.set(id,new El(id));return els.get(id)};
  const document={getElementById:get,querySelectorAll:()=>ids.map(get),querySelector:()=>new El("heading","H2"),createElement:t=>new El("",t.toUpperCase()),createTextNode:t=>({textContent:t})};
  const spoken=[],speechSynthesis={cancel(){},speak:u=>spoken.push(u.text)};
- const window={scrollTo(){},speechSynthesis};
+ // Exercise the supported reduced-motion path so visual transition timers cannot delay journey assertions.
+  const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"})};
  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[clockInstant]))}static now(){return new Date(clockInstant).getTime()}}
  const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:"Georgetown",state:"South Carolina"}});
