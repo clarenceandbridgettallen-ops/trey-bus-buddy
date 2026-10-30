@@ -151,5 +151,32 @@ class TripTransferDiagnosticTests(unittest.TestCase):
         self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
 
 
+    def test_terminal_only_event_cannot_be_transfer(self):
+        # An inbound bus cannot deliver a passenger at its first stop.
+        inbound_first = [dict(row) for row in self.times]
+        inbound_first[2]['stop_id'] = 'A'
+        result = self.check(
+            stop_times=inbound_first, inbound_stop_id='A',
+            inbound_stop_sequence=1, outbound_stop_id='A',
+            outbound_stop_sequence=1)
+        self.assertEqual(result['reason'], 'terminal_stop_event_not_a_transfer')
+        self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+
+        # An outbound bus cannot carry a passenger onward from its last stop.
+        outbound_last = [dict(row) for row in self.times]
+        outbound_last[1]['stop_id'] = 'Y'
+        result = self.check(
+            stop_times=outbound_last, inbound_stop_id='Y',
+            inbound_stop_sequence=2, outbound_stop_id='Y',
+            outbound_stop_sequence=2)
+        self.assertEqual(result['reason'], 'terminal_stop_event_not_a_transfer')
+        self.assertFalse(result['actual_departures_verified'])
+
+    def test_malformed_stop_time_row_fails_closed(self):
+        result = self.check(stop_times=self.times + [None])
+        self.assertEqual(result['reason'], 'invalid_stop_time_row')
+        self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+
+
 if __name__ == '__main__':
     unittest.main()
