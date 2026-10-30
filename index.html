@@ -7,8 +7,41 @@ footer button{min-width:0;min-height:48px;padding:8px 5px;font-size:15px;line-he
 #feedback{grid-column:1/-1}
 #guide{justify-content:flex-start;padding-bottom:calc(var(--footer-height, 130px) + 100px)}
 #guide #nextInstruction{position:fixed;left:50%;transform:translateX(-50%);width:min(500px,calc(100% - 48px));bottom:calc(var(--footer-height, 130px) + 8px);z-index:15;box-shadow:0 3px 10px rgba(37,23,70,.16)}
+
+/* Bus Buddy coastal visual refresh v37. Presentation only; routing and interaction logic unchanged. */
+:root{--ocean:#075b91;--deep:#063c67;--sky:#e9f6fc;--sun:#f8c846;--ink:#12314c;--border:#bdd9e9;font-family:system-ui,Arial,sans-serif;color:var(--ink);background:#e8f5fb}
+body{background:linear-gradient(160deg,#dff3fd 0%,#f7fcff 42%,#e8f6fd 100%);min-height:100dvh}
+header{padding:12px 9px 16px;gap:10px}
+header strong{font-size:24px;color:var(--deep);letter-spacing:-.5px}
+header small{font-size:12px;color:#37566d;font-weight:700}
+.screen{background:#fff;border:2px solid #a4cfe4;border-radius:27px;box-shadow:0 12px 32px rgba(8,66,106,.10),0 2px 6px rgba(8,66,106,.05);padding:24px 19px;gap:17px}
+.screen.active{animation:coast-appear .28s ease-out both}
+h1,h2{color:var(--deep);letter-spacing:-.7px}
+h2{font-size:clamp(27px,6vw,32px)}
+p{color:var(--ink)}
+button,a.big{border-color:var(--ocean);color:var(--deep);background:#fff;border-radius:17px;box-shadow:0 3px 0 rgba(6,60,103,.09);transition:background-color .18s ease,box-shadow .18s ease,transform .18s ease}
+button.primary,a.primary{background:var(--ocean);color:#fff;border-color:var(--ocean);box-shadow:0 5px 0 #03436d,0 8px 18px rgba(7,91,145,.16)}
+button:active:not(:disabled),a.big:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(6,60,103,.14)}
+button:disabled{opacity:.58;box-shadow:none}
+input,textarea,select{border-color:#7aa9c5!important;background:#fcfeff;color:var(--ink)}
+input:focus,textarea:focus,select:focus{outline:3px solid #f4c34c;outline-offset:2px}
+.address,.stop{background:#edf8ff;border-color:#92c2dd;color:var(--deep);box-shadow:inset 0 1px 0 #fff}
+.hint{color:#405c70}
+#dataStatus{color:#35576c}
+footer{background:#e8f5fb;box-shadow:0 -7px 22px rgba(6,60,103,.10);border-top:1px solid #d2e8f3}
+footer button{background:#fff}
+#planFare{background:#fff9e7;border-color:#e4c56d}
+:focus-visible{outline:4px solid #f1b926;outline-offset:3px}
+#welcome{position:relative;overflow:hidden;background:radial-gradient(circle at 84% 14%,#fff2bd 0 42px,transparent 44px),linear-gradient(165deg,#fff 20%,#eaf8ff 100%)}
+#welcome::before{content:"";position:absolute;left:-12%;right:-12%;bottom:9%;height:72px;background:radial-gradient(ellipse at 50% 100%,#cdeefa 0 48%,transparent 49%);opacity:.65;pointer-events:none}
+#welcome>button{position:relative;z-index:1}
+.emoji{filter:drop-shadow(0 4px 4px rgba(7,91,145,.12))}
+@keyframes coast-appear{from{opacity:.7;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media (hover:hover){button:hover:not(:disabled),a.big:hover{background:#eef8fe}button.primary:hover:not(:disabled),a.primary:hover{background:#064d7d}}
+@media (prefers-reduced-motion:reduce){.screen.active{animation:none}button,a.big{transition:none}}
+@media (max-width:360px){.screen{padding:20px 13px}header strong{font-size:21px}button,a.big{font-size:19px}}
 </style></head><body>
-<header><strong>🚌 Bus Buddy</strong><small>Preview v36</small></header>
+<header><strong>🚌 Bus Buddy</strong><small>Preview v37</small></header>
 <p id="dataStatus" role="status" aria-live="polite">Loading stored Coast RTA route data. No live arrivals.</p>
 <main>
 <section class="screen active" id="welcome"><button class="primary" id="locate">📍 I AM HERE</button><button id="typeStart">⌨️ ENTER LOCATION</button></section>
