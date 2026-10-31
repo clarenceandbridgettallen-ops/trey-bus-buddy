@@ -410,11 +410,14 @@ function showPossiblePattern(pattern){
  const note=document.createElement("p");
  note.textContent="Selected destination: "+destination.name+" ("+destination.address+"). Starting stop is about "+Math.round(distance(pos,pattern.legs[0].from))+" meters straight-line away. Final stop is about "+Math.round(pattern.finalWalk)+" meters straight-line from the destination. Neither is a verified walk.";
  $("planSteps").append(note);
+ const spokenPreview=["POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP. No departures, transfer times, safe walking routes or boarding sides are verified. Do not travel based on this preview. Confirm with Coast RTA at 843-488-0865.",note.textContent];
  pattern.legs.forEach((leg,i)=>{
   const item=document.createElement("p");item.className="journey-detail";
   item.textContent="POSSIBLE BUS "+(i+1)+": "+leg.trip.route+" from "+leg.from.name+" (stop ID "+leg.from.id+") to "+leg.to.name+" (stop ID "+leg.to.id+"). "+(String(leg.trip.headsign||"").trim()?"Stored destination sign: "+String(leg.trip.headsign).trim()+". ":"Official destination sign not supplied in stored trip. ")+"Confirm the route, direction and destination sign with the driver before boarding. No departure or arrival time verified."+(i?" Transfer from the previous stop: "+Math.round(leg.transferWalk)+" meters straight-line; safe crossing and connection not verified.":"")+sameNameStopCaution(leg.from)+nearbyDistinctStopCaution(leg.from);
   $("planSteps").append(item);
+  spokenPreview.push(item.textContent);
  });
+ const readPreview=document.createElement("button");readPreview.className="big";readPreview.type="button";readPreview.textContent="READ POSSIBLE ROUTE ALOUD (NOT LIVE NAVIGATION)";readPreview.disabled=!("speechSynthesis" in window);readPreview.setAttribute("aria-describedby","planStatus");readPreview.onclick=()=>{if(!readPreview.disabled)speak(spokenPreview.join(" "))};$("planSteps").append(readPreview);
  const call=document.createElement("a");call.className="big";call.href="tel:8434880865";call.textContent="CALL COAST RTA TO VERIFY THIS ROUTE";$("planSteps").append(call);
  const n=pattern.legs.length;
  $("planFare").textContent=n+(n===1?" possible boarding":" possible boardings")+" · Standard cash fare if operating: $"+n.toFixed(2)+" (not a confirmed trip)";
