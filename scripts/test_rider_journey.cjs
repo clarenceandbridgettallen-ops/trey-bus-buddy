@@ -157,6 +157,21 @@ async function main(){
  assert.ok(frequencyBlocked.get("planSteps").children.length,"Keep itinerary preview available for review");
  await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
  console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
+
+ // When the non-exact frequency feed cannot supply a timed journey,
+ // retain only a topology-based route-pattern idea, never a departure claim.
+ const lateFrequency=boot("2026-10-28T00:41:00Z",null,null,"frequency-unverified");
+ await lateFrequency.settle();await selectAndrews(lateFrequency);
+ assert.match(lateFrequency.get("planStatus").textContent,/POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP/);
+ assert.match(lateFrequency.get("planStatus").textContent,/frequency-based departures, actual transfer timing/);
+ assert.equal(lateFrequency.get("guideStart").disabled,true,"A route-pattern-only result must never enable guided boarding");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/POSSIBLE BUS 1:/.test(x.textContent)),"Show stored route/stop pattern instead of inventing a departure");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/stop ID TL-/.test(x.textContent)),"Preview must identify official stop IDs");
+ assert.ok(!lateFrequency.get("planSteps").children.some(x=>/OPEN WALK|VIEW FINAL WALKING ROUTE/.test(x.textContent)),"Do not offer unverified pedestrian navigation in topology-only mode");
+ assert.match(lateFrequency.get("planFare").textContent,/not a confirmed trip/);
+ await lateFrequency.click("guideStart");assert.equal(lateFrequency.state().screen,"itinerary");
+ console.log("PASS: late frequency-based service offers untimed stop/route-pattern review without false departures or guided navigation");
+
  const a=boot();await a.settle();
  // Coast RTA's two distinct mapped stops near Coalition Dr / Holly Circle are 52 m apart,
  // but the stored Route 15S trip sequence has 24 intermediate stops from Holly Circle to Coalition Dr.
