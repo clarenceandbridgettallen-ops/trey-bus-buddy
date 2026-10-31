@@ -673,4 +673,22 @@ async function main(){
  console.log("PASS: spaced and unspaced PruittHealth business names resolve to the same confirmable Conway address (mocked)");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
+// Regression: merging two frontier paths by only (stop, last route) loses a valid
+// third transfer when the paths used different earlier routes. All stops/routes
+// here are synthetic; this does not certify Coast RTA service or safe walking.
+{
+ const begin=script.indexOf("function possibleRoutePattern(){");
+ const end=script.indexOf("function showPossiblePattern(",begin);
+ assert.ok(begin>=0&&end>begin,"Untimed multi-transfer planner source missing");
+ const isolated=script.slice(begin,end);
+ const stop=(id,lat)=>({id,name:id,lat,lon:0,routes:[]});
+ const trip=(route,from,to)=>({route,service:"QA",stops:[{stop:from},{stop:to}]});
+ const candidate=new Function("official","journeys","pos","destination","distance","serviceSet",isolated+";return possibleRoutePattern();")(
+  {stops:[stop("S",0),stop("X",10000),stop("Y",20000),stop("Z",30000)]},
+  {trips:[trip("A","S","X"),trip("B","S","X"),trip("C","X","Y"),trip("A","Y","Z")]},
+  {lat:0,lon:0},{lat:30000,lon:0},(a,b)=>Math.abs(a.lat-b.lat),()=>new Set(["QA"]));
+ assert.deepEqual(candidate?.legs.map(leg=>leg.trip.route),["B","C","A"],
+  "Distinct earlier-route histories must survive pruning to permit three-bus transfer patterns");
+ console.log("PASS: synthetic three-bus fallback preserves alternate earlier-route history (not a confirmed trip)");
+}
 main().catch(e=>{console.error(e);process.exitCode=1});
