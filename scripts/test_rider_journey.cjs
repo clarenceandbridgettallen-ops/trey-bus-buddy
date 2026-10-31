@@ -157,6 +157,14 @@ async function main(){
  assert.ok(html.includes('Confirm all service and stops with Coast RTA. "+$("planStatus").textContent'),"Unverified-frequency label must preserve existing long-walk and interpolated-time safety warnings");
  assert.match(frequencyBlocked.get("dataStatus").textContent,/frequency-based trips absent from this timetable/);
  assert.ok(frequencyBlocked.get("planSteps").children.length,"Keep itinerary preview available for review");
+ const readTemplate=frequencyBlocked.get("planSteps").children.find(x=>/READ UNCONFIRMED ROUTE ALOUD/.test(x.textContent));
+ assert.ok(readTemplate&&!readTemplate.disabled,"Unconfirmed timed templates need an accessible, user-requested spoken review");
+ const beforeTemplateSpeech=frequencyBlocked.spoken.length;
+ await readTemplate.onclick();
+ assert.equal(frequencyBlocked.spoken.length,beforeTemplateSpeech+1,"Route template must speak only after rider taps the preview");
+ assert.match(frequencyBlocked.spoken.at(-1),/^POSSIBLE ROUTE TEMPLATE ONLY, NOT A CONFIRMED TRIP\. Do not travel based on this preview\./,"Spoken timed-template review must begin with the safety restriction");
+ assert.match(frequencyBlocked.spoken.at(-1),/stop ID TL-/,"Spoken timed-template review must include official stop IDs");
+ assert.equal(frequencyBlocked.get("guideStart").disabled,true,"Spoken review must not authorize unverified boarding");
  await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
  console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
 
