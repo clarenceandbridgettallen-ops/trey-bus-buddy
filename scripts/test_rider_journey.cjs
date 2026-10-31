@@ -94,7 +94,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
-  if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:[]};
+  if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:u.includes("2379%20Cypress%20Circle")?[{lat:String(interchange.lat+0.01),lon:String(interchange.lon+0.01),name:"PruittHealth - Conway at Conway Medical Center",display_name:"2379 Cypress Circle, Conway, SC 29526"}]:[]};
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
@@ -583,6 +583,21 @@ async function main(){
  assert.ok(spacedName.get("placeResults").children.length,"Known-address fallback must return a selectable, confirmable result");
  assert.match(spacedName.get("placeResults").children[0].children[0].textContent,/Belle Isle Bistro/);
  console.log("PASS: repeated spaces in typed Belle Isle Bistro still reach confirmable known-address fallback (mocked)");
+ // The official facility uses PruittHealth, but riders often type Pruitt Health.
+ // Both names must reach the same confirmed Conway address, not an unrelated city.
+ for(const typedName of ["Pruitt Health","PruittHealth Conway"]){
+  const care=boot();await care.settle();await care.click("locate");await care.settle();
+  await care.click("yesLocation");await care.click("goDestination");
+  care.get("destinationInput").value=typedName;await care.click("findTrip");
+  assert.equal(care.state().screen,"searchResults","Spaced/unspaced PruittHealth name must return selectable results: "+typedName);
+  const entries=care.get("placeResults").children;
+  assert.ok(entries.length,"Expected a confirmed Conway place result: "+typedName);
+  assert.match(entries[0].children[1].textContent,/2379 Cypress Circle, Conway, SC/);
+  await entries[0].onclick();
+  assert.equal(care.state().screen,"confirmDestination");
+  assert.match(care.get("destinationAddress").textContent,/2379 Cypress Circle, Conway, SC/);
+ }
+ console.log("PASS: spaced and unspaced PruittHealth business names resolve to the same confirmable Conway address (mocked)");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
