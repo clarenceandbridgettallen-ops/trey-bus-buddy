@@ -173,6 +173,19 @@ async function main(){
  assert.match(hung.get("tripStatus").textContent,/Place lookup timed out after 15 seconds/,"Timeout must be explained to the rider");
  assert.equal(hung.state().screen,"destination","Timeout must not silently choose a place");
  console.log("PASS: hung place geocoder times out, explains failure, and restores search button (mocked)");
+ // Typed START addresses need the same bounded recovery as destination lookup.
+ // A hanging free provider must not leave the rider stuck on "Checking" forever.
+ const hungOrigin=boot("2026-10-27T11:00:00Z",null,null,"geocoder-hang");
+ await hungOrigin.settle();await hungOrigin.click("typeStart");
+ hungOrigin.get("address").value="123 Unlisted Road Georgetown";
+ const pendingOrigin=hungOrigin.click("useAddress");await hungOrigin.settle();
+ assert.equal(hungOrigin.get("useAddress").disabled,true,"Starting-address lookup should be pending before timeout");
+ hungOrigin.triggerTimers();await pendingOrigin;
+ assert.equal(hungOrigin.get("useAddress").disabled,false,"Timed-out starting-address search must restore the retry control");
+ assert.match(hungOrigin.get("manualStatus").textContent,/Starting-address lookup timed out after 15 seconds/,"Origin timeout must be explained");
+ assert.equal(hungOrigin.state().screen,"manual","Origin timeout must not silently confirm a wrong starting location");
+ assert.equal(hungOrigin.state().pos,null,"Origin timeout must not set a guessed starting coordinate");
+ console.log("PASS: hung starting-address geocoder times out, restores retry, and preserves manual location confirmation (mocked)");
  // Reproduce a failure arriving AFTER the rider has already opened the itinerary.
  // The old code left the loading message in place forever; the new handlers must
  // re-render a fail-closed itinerary without requiring the rider to leave/re-enter.
