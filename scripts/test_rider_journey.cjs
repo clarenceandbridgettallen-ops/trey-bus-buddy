@@ -29,6 +29,8 @@ assert.match(html,/Do not assume a free ride: budget \$1 per boarding/);
 assert.match(html,/https:\/\/coastrta\.com\/contactless-fare-payment\//);
 assert.match(html,/https:\/\/coastrta\.com\/how-to-ride\//);
 console.log("PASS: contradictory official peak-hour fare pages disclosed without claiming a free ride");
+assert.match(html,/A physical card, phone, and watch can count as different payment methods even when linked to the same bank card/,"Do not imply mixing physical card and mobile wallet preserves the 24-hour cap");
+console.log("PASS: contactless cap guidance warns that switching card and device can defeat capping");
 
 assert.ok(script&&stops.stops.length>=50&&journeys.trips.length);
 const origin=stops.stops.find(s=>/Georgetown Transfer Center/i.test(s.name));
