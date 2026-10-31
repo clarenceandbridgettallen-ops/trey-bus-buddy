@@ -2,10 +2,12 @@
 """Offline tests for the fail-closed GTFS frequency import guard."""
 import sys
 import unittest
+import json
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity, audit_boarding_permissions
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity, audit_boarding_permissions, write_frequency_blocker_audit
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -298,3 +300,35 @@ class BoardingPermissionAuditTests(unittest.TestCase):
         result = audit_boarding_permissions(rows, stored)
         self.assertEqual(result['rows_with_any_restriction'], 1)
         self.assertEqual(result['restricted_fields_not_represented_in_snapshot'], 0)
+
+    def test_frequency_blocker_audit_persists_only_read_only_evidence(self):
+        official = [{'stop_id':'TL-1','stop_name':'Georgetown Transfer Center',
+                     'stop_lat':'33.3700','stop_lon':'-79.2800'}]
+        stored = [{'id':'TL-1','name':'Georgetown Transfer Center',
+                   'lat':33.3700,'lon':-79.2800,'routes':['14']}]
+        frequency = [{'trip_id':'trip14','start_time':'08:00:00',
+                      'end_time':'09:00:00','headway_secs':'900','exact_times':'0'}]
+        trips = {'trip14':{'route':'14','service':'weekday'}}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'docs'/'gtfs-frequency-readonly-audit.json'
+            report = write_frequency_blocker_audit(path,frequency,trips,official,stored)
+            saved = json.loads(path.read_text(encoding='utf-8'))
+            self.assertEqual(saved,report)
+            self.assertEqual(saved['status'],'blocked_frequency_import_read_only')
+            self.assertEqual(saved['frequency_rows'],1)
+            self.assertEqual(saved['frequency_window_diagnostic']['exact_times_modes'],{'0':1})
+            self.assertEqual(saved['stored_stop_comparison']['new_in_official_feed_count'],0)
+            self.assertEqual(saved['stored_stop_comparison']['not_in_official_feed_count'],0)
+            self.assertFalse(saved['published_rider_snapshot_updated'])
+            self.assertFalse(saved['exact_departures_verified'])
+            self.assertFalse(saved['live_arrivals_verified'])
+            self.assertFalse(saved['accessible_walking_paths_verified'])
+            self.assertNotIn('scheduled_departures',saved)
+
+    def test_frequency_blocker_audit_without_snapshot_does_not_claim_parity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'audit.json'
+            saved = write_frequency_blocker_audit(path,[],{},[],None)
+            self.assertIsNone(saved['stored_stop_comparison'])
+            self.assertEqual(saved['official_stop_rows'],0)
+            self.assertFalse(saved['published_rider_snapshot_updated'])
