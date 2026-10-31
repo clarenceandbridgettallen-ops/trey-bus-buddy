@@ -143,6 +143,9 @@ function pickStartCandidate(query,candidates){
   const lat=Number(item.lat),lon=Number(item.lon);
   if(!Number.isFinite(lat)||!Number.isFinite(lon)||!isNearby({geometry:{coordinates:[lon,lat]}}))continue;
   const name=item.name||"",address=item.address||"";
+  // A matching street or business name in the wrong town is not a safe starting point.
+  // Apply the same explicit-community safeguard already used for destinations.
+  if(!placeMatchesRequestedCity(query,{address:address||name}))continue;
   const score=placeMatchScore(query,{name,address});
   if(score>=75)options.push({lat,lon,name,address:address||name,score});
  }
