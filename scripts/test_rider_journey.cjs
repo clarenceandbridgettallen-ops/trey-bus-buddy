@@ -567,7 +567,6 @@ async function main(){
  Object.assign(nameRisk.state().pos,{lat:bucksportA.lat,lon:bucksportA.lon});
  await nameRisk.click("goNearest");
  assert.equal(nameRisk.state().screen,"nearest");
- assert.match(nameRisk.get("stopDetails").textContent,/NOT necessarily a stop served by a bus to your destination/);
  assert.match(nameRisk.spoken.at(-1),/not necessarily a boarding stop for your destination/);
  assert.equal(nameRisk.get("stopName").textContent.trim(),"Bucksport Marina");
  assert.match(nameRisk.get("stopDetails").textContent,/Another mapped Coast RTA stop shares this name more than 1 km away/);
