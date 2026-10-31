@@ -109,6 +109,12 @@ def transfer_feasibility(inbound, outbound, minimum_transfer_seconds):
             inbound.get('status') != 'possible_window_only_not_departure' or
             outbound.get('status') != 'possible_window_only_not_departure'):
         return 'unknown_do_not_navigate'
+    # GTFS timepoint=0 is approximate even when it contains a clock value.
+    # It cannot safely prove that a connection is impossible (or possible).
+    # Both outcomes must remain unknown until independently timed.
+    if any(window.get('stop_time_approximate') is True or
+           window.get('timepoint') == '0' for window in (inbound, outbound)):
+        return 'unknown_do_not_navigate'
     # A corrupt bound, NaN, infinity or reversed window must never become a
     # seemingly possible transfer. These are diagnostics, not departures.
     fields = (inbound.get('earliest_seconds'), inbound.get('latest_exclusive_seconds'),
