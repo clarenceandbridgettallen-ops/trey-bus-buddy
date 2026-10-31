@@ -1,6 +1,22 @@
 {
   "accessible_walking_paths_verified": false,
-  "checked_utc": "2026-10-31T04:45:32.125993+00:00",
+  "boarding_permission_audit": {
+    "accessible_pedestrian_path_verified": false,
+    "drop_off_codes": {
+      "0": 5165
+    },
+    "official_stop_time_rows": 5165,
+    "pickup_codes": {
+      "0": 5165
+    },
+    "restricted_examples": [],
+    "restricted_fields_missing_matching_snapshot_row": 0,
+    "restricted_fields_not_represented_in_snapshot": 0,
+    "rows_with_any_restriction": 0,
+    "safe_boarding_side_verified": false,
+    "status": "read_only_no_boarding_authorization"
+  },
+  "checked_utc": "2026-10-31T05:42:12.542983+00:00",
   "exact_departures_verified": false,
   "frequency_route_diagnostic": {
     "affected_routes": 31,
@@ -350,6 +366,68 @@
     ]
   },
   "frequency_rows": 93,
+  "frequency_service_date_audit": {
+    "active_rows": 90,
+    "frequency_rows": 93,
+    "frequency_service_ids": 22,
+    "inactive_rows": 3,
+    "invalid_calendar_rows": 0,
+    "invalid_exception_rows": 0,
+    "service_date": "20261031",
+    "status": "diagnostic_only_not_departure_times",
+    "uncertain_rows": 0,
+    "uncertain_service_ids": []
+  },
+  "frequency_template_audit": {
+    "all_stop_times_blank": {
+      "count": 0,
+      "example_trip_ids": []
+    },
+    "fewer_than_two_stops": {
+      "count": 0,
+      "example_trip_ids": []
+    },
+    "known_frequency_trip_templates": 93,
+    "missing_first_stop_details": [
+      {
+        "first_stop_id": "TL-1163",
+        "first_stop_pickup_type": "0",
+        "first_stop_sequence": "300",
+        "first_stop_timepoint": "0",
+        "first_timed_stop_id": "TL-1033",
+        "first_timed_stop_sequence": "467",
+        "first_timed_stop_time": "06:25:00",
+        "leading_untimed_stops": 14,
+        "route": "Rt 15SH Tidelands/Myrtle Beach",
+        "service_id": "TL-216",
+        "trip_id": "TL-1906"
+      },
+      {
+        "first_stop_id": "TL-1163",
+        "first_stop_pickup_type": "0",
+        "first_stop_sequence": "300",
+        "first_stop_timepoint": "0",
+        "first_timed_stop_id": "TL-954",
+        "first_timed_stop_sequence": "485",
+        "first_timed_stop_time": "07:30:00",
+        "leading_untimed_stops": 17,
+        "route": "Rt 15SH Tidelands/Myrtle Beach",
+        "service_id": "TL-216",
+        "trip_id": "TL-1907"
+      }
+    ],
+    "missing_first_stop_time": {
+      "count": 2,
+      "example_trip_ids": [
+        "TL-1906",
+        "TL-1907"
+      ]
+    },
+    "unresolved_calendar_service": {
+      "count": 0,
+      "example_trip_ids": []
+    }
+  },
   "frequency_window_diagnostic": {
     "exact_times_modes": {
       "0": 93
@@ -379,6 +457,24 @@
   "official_stop_rows": 525,
   "published_rider_snapshot_updated": false,
   "status": "blocked_frequency_import_read_only",
+  "stop_route_membership_comparison": {
+    "live_arrivals_verified": false,
+    "official_only_membership_count": 0,
+    "official_only_membership_examples": [],
+    "official_route_stop_memberships": 962,
+    "official_stop_ids": 525,
+    "official_stop_ids_missing_from_snapshot": [],
+    "safe_walking_routes_verified": false,
+    "snapshot_stop_ids_missing_from_official": [],
+    "status": "read_only_official_gtfs_vs_stored_route_memberships",
+    "stored_only_membership_count": 0,
+    "stored_only_membership_examples": [],
+    "stored_route_stop_memberships": 962,
+    "stored_stop_ids": 525,
+    "unknown_route_references": 0,
+    "unknown_stop_references": 0,
+    "unknown_trip_references": 0
+  },
   "stored_stop_comparison": {
     "coordinate_changes_over_100m": [],
     "coordinate_changes_over_100m_count": 0,
