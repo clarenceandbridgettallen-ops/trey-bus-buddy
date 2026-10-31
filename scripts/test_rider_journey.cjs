@@ -103,10 +103,10 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -133,7 +133,16 @@ async function main(){
   ["Andrews Pharmacy Myrtle Beach","myrtle beach"],
   ["Walmart",null]
  ])assert.equal(cityGuard.requestedCity(typed),expected,"Destination search must preserve explicitly requested town: "+typed);
- assert.match(html,/const eligible=matches\.filter\(x=>score\(x\)>=75&&\(!requestedCity\|\|/);
+ for(const [typed,address,expected] of [
+  ["123 Main Street Andrews","123 Main Street Conway, SC",false],
+  ["123 Main Street Andrews","123 Main Street Andrews, SC",true],
+  ["Walmart North Myrtle Beach","Walmart Myrtle Beach, SC",false],
+  ["Walmart North Myrtle Beach","Walmart North Myrtle Beach, SC",true],
+  ["Walmart","Walmart Conway, SC",true]
+ ])assert.equal(cityGuard.placeMatchesCity(typed,{address}),expected,"Do not accept a wrong-town geocoder candidate: "+typed);
+ assert.ok(html.includes("if(!matches.some(x=>placeMatchScore(q,x)>=75&&placeMatchesRequestedCity(typed,x)))"),"Retry free geocoder if Photon found only wrong-town matches");
+ assert.ok(html.includes("if(matches.some(x=>placeMatchScore(q,x)>=75&&placeMatchesRequestedCity(typed,x)))break"),"Do not stop fallback search on wrong-town matches");
+ assert.ok(html.includes("const eligible=matches.filter(x=>score(x)>=75&&placeMatchesRequestedCity(typed,x))"),"Final place results must respect typed town");
  console.log("PASS: typed destination town cannot be silently replaced with another Coast RTA community");
 
  const frequencyBlocked=boot("2026-10-27T11:00:00Z",null,null,"frequency-unverified");
