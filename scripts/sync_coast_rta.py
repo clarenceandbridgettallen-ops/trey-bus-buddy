@@ -333,7 +333,9 @@ def audit_boarding_permissions(stop_times, stored_trips):
 
 
 
-def write_frequency_blocker_audit(path, frequency_rows, trip_details, stop_rows, stored_stops=None):
+def write_frequency_blocker_audit(path, frequency_rows, trip_details, stop_rows, stored_stops=None,
+                                  route_membership_report=None, boarding_permission_report=None,
+                                  frequency_template_report=None, service_date_report=None):
  """Persist read-only agency GTFS evidence without changing rider stop/timetable data.
 
  This is a *retrieval-time diagnostic*, not a certified agency publication date,
@@ -349,6 +351,10 @@ def write_frequency_blocker_audit(path, frequency_rows, trip_details, stop_rows,
   "frequency_rows":len(frequency_rows),
   "frequency_window_diagnostic":inspect_frequency_windows(frequency_rows,set(trip_details)),
   "frequency_route_diagnostic":summarize_frequency_routes(frequency_rows,trip_details),
+  "stop_route_membership_comparison":route_membership_report,
+  "boarding_permission_audit":boarding_permission_report,
+  "frequency_template_audit":frequency_template_report,
+  "frequency_service_date_audit":service_date_report,
   "published_rider_snapshot_updated":False,
   "exact_departures_verified":False,
   "live_arrivals_verified":False,
@@ -404,7 +410,8 @@ def main():
    print("GTFS BOARDING AND ALIGHTING PERMISSION AUDIT "+json.dumps(permissions,sort_keys=True),flush=True)
   if frequency_rows:
    print("GTFS FREQUENCY ROUTES "+json.dumps(summarize_frequency_routes(frequency_rows,trip_details),sort_keys=True),flush=True)
-   print("GTFS FREQUENCY TEMPLATES "+json.dumps(inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions),sort_keys=True),flush=True)
+   template_report=inspect_frequency_templates(frequency_rows,trip_details,times,calendars,exceptions)
+   print("GTFS FREQUENCY TEMPLATES "+json.dumps(template_report,sort_keys=True),flush=True)
    print("GTFS FREQUENCY BOARDING WINDOWS "+json.dumps(audit_frequency_boarding_windows(frequency_rows,times),sort_keys=True),flush=True)
    print("GTFS FREQUENCY ANCHOR ORDER "+json.dumps(audit_frequency_anchor_order(frequency_rows,times),sort_keys=True),flush=True)
   if frequency_rows:
@@ -422,7 +429,11 @@ def main():
    # Never refresh rider snapshots from a frequency feed we cannot schedule.
    blocker=write_frequency_blocker_audit(
     ROOT/"docs/gtfs-frequency-readonly-audit.json",frequency_rows,trip_details,
-    stop_rows,stored.get("stops",[]) if snapshot_path.exists() else None)
+    stop_rows,stored.get("stops",[]) if snapshot_path.exists() else None,
+    route_membership_report=route_memberships if snapshot_path.exists() else None,
+    boarding_permission_report=permissions if journey_snapshot_path.exists() else None,
+    frequency_template_report=template_report,
+    service_date_report=calendar_report)
    print("GTFS READ-ONLY FREQUENCY BLOCKER AUDIT "+json.dumps({
     "checked_utc":blocker["checked_utc"],"frequency_rows":blocker["frequency_rows"],
     "published_rider_snapshot_updated":False},sort_keys=True),flush=True)
