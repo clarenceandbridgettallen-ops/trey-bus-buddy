@@ -163,10 +163,10 @@ function pickStartCandidate(query,candidates){
  }
  return options.sort((a,b)=>b.score-a.score)[0]||null;
 }
-async function lookupTypedStart(q){
+async function lookupTypedStart(q,signal){
  const photon=[];
  try{
-  const r=await fetch("https://photon.komoot.io/api/?limit=25&q="+encodeURIComponent(q+", South Carolina"));
+  const r=await fetch("https://photon.komoot.io/api/?limit=25&q="+encodeURIComponent(q+", South Carolina"),{signal});
   if(r.ok){
    const d=await r.json();
    for(const p of d.features||[]){
@@ -177,13 +177,15 @@ async function lookupTypedStart(q){
    }
   }
  }catch(e){}
+ if(signal.aborted)return null;
  const first=pickStartCandidate(q,photon);
  if(first)return first;
  // Geocoding fallback only; boarding stops still come from official GTFS.
  try{
-  const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(q+", South Carolina"));
+  const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(q+", South Carolina"),{signal});
   if(r.ok){
    const results=await r.json();
+   if(signal.aborted)return null;
    return pickStartCandidate(q,results.map(p=>({lat:p.lat,lon:p.lon,name:p.name||"",address:p.display_name||""})));
   }
  }catch(e){}
@@ -191,16 +193,19 @@ async function lookupTypedStart(q){
 }
 $("useAddress").onclick=async()=>{
  const q=$("address").value.trim();if(!q){$("manualStatus").textContent="Enter a starting address or place name.";return}const requestVersion=navigationVersion;
+ // A single deadline covers both free origin geocoders; never strand the rider on Checking.
+ const startController=new AbortController(),startTimeout=window.setTimeout(()=>startController.abort(),15000);
  $("manualStatus").textContent="Checking address and house number in the Coast RTA region…";
  $("useAddress").disabled=true;
  try{
-  const found=await lookupTypedStart(q);
+  const found=await lookupTypedStart(q,startController.signal);
+  if(startController.signal.aborted)throw Error("Starting-address lookup timed out after 15 seconds. Try again or use GPS.");
   if(navigationVersion!==requestVersion||screen!=="manual")return;
   if(!found)throw Error("No matching start address in the Coast RTA region. Check the house number, street and city; do not use a different suggested address.");
   await gotPosition(found.lat,found.lon,null,found.address||found.name||q);
   $("manualStatus").textContent="";
  }catch(e){if(navigationVersion===requestVersion&&screen==="manual")$("manualStatus").textContent=e.message}
- finally{$("useAddress").disabled=false}
+ finally{window.clearTimeout(startTimeout);$("useAddress").disabled=false}
 };
 const MAX_NEARBY_STRAIGHT_LINE_METERS=1800;
 // Conservative schedule screening only: straight-line distance cannot certify an accessible walk.
