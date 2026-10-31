@@ -58,6 +58,31 @@ class FrequencyWindowTests(unittest.TestCase):
         outbound = stop_window(freq(start_time='07:00:00',end_time='08:00:00'),stops(),'A')
         self.assertEqual(transfer_feasibility(inbound,outbound,600),'impossible_by_time_bounds')
 
+    def test_approximate_timepoint_cannot_disprove_transfer(self):
+        # Even a published time at timepoint=0 is approximate. A window
+        # comparison must not declare a transfer impossible using it.
+        approximate = stops()
+        approximate[1]['timepoint'] = '0'
+        inbound = stop_window(freq(), approximate, 'B', 'arrival')
+        outbound = stop_window(freq(start_time='07:00:00',
+                                    end_time='08:00:00'), stops(), 'A')
+        self.assertTrue(inbound['stop_time_approximate'])
+        self.assertEqual(inbound['status'], 'possible_window_only_not_departure')
+        self.assertEqual(transfer_feasibility(inbound, outbound, 600),
+                         'unknown_do_not_navigate')
+        self.assertEqual(transfer_feasibility_for_service_date(
+            inbound, outbound, 600, 'active', 'active'), 'unknown_do_not_navigate')
+
+    def test_approximate_outbound_timepoint_is_unknown_too(self):
+        inbound = stop_window(freq(), stops(), 'B', 'arrival')
+        approximate = stops()
+        approximate[0]['timepoint'] = '0'
+        outbound = stop_window(freq(start_time='07:00:00',
+                                    end_time='08:00:00'), approximate, 'A')
+        self.assertTrue(outbound['stop_time_approximate'])
+        self.assertEqual(transfer_feasibility(inbound, outbound, 600),
+                         'unknown_do_not_navigate')
+
     def test_overlapping_windows_never_guarantee_transfer(self):
         inbound = stop_window(freq(),stops(),'B','arrival')
         outbound = stop_window(freq(start_time='08:30:00',end_time='10:00:00'),stops(),'A')
