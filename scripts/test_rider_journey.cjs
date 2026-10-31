@@ -99,15 +99,15 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
   if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}};
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
-  if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
+  if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("2379 cypress circle conway"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[origin.lon,origin.lat]},properties:{name:"2379 Cypress Circle",housenumber:"2379",street:"Cypress Circle",city:"Georgetown",state:"South Carolina"}}]})};if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:u.includes("2379%20Cypress%20Circle")?[{lat:String(interchange.lat+0.01),lon:String(interchange.lon+0.01),name:"PruittHealth - Conway at Conway Medical Center",display_name:"2379 Cypress Circle, Conway, SC 29526"}]:[]};
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -298,6 +298,20 @@ async function main(){
  m.get("address").value="Georgetown Transfer Center";await m.click("useAddress");
  assert.equal(m.state().screen,"found");assert.equal(m.get("yesLocation").disabled,false);
  console.log("PASS: typed origin → location confirmation");
+ // Origin search must reject a same-number/street match in another named Coast RTA town.
+ const cityOrigin=boot();await cityOrigin.settle();
+ const wrongOrigin={lat:origin.lat,lon:origin.lon,name:"2379 Cypress Circle",address:"2379 Cypress Circle Georgetown South Carolina"};
+ const correctOrigin={lat:interchange.lat,lon:interchange.lon,name:"2379 Cypress Circle",address:"2379 Cypress Circle Conway South Carolina"};
+ assert.equal(cityOrigin.pickStartCandidate("2379 Cypress Circle Conway",[wrongOrigin]),null,
+  "Typed Conway origin must not silently accept an otherwise matching Georgetown street");
+ assert.equal(cityOrigin.pickStartCandidate("2379 Cypress Circle Conway",[wrongOrigin,correctOrigin]).address,correctOrigin.address,
+  "Typed Conway origin should select only the correctly named town");
+ await cityOrigin.click("typeStart");
+ cityOrigin.get("address").value="2379 Cypress Circle Conway";await cityOrigin.click("useAddress");
+ assert.equal(cityOrigin.state().screen,"found","Wrong-town Photon origin must fall back to the second free geocoder");
+ assert.match(cityOrigin.get("foundAddress").textContent,/2379 Cypress Circle, Conway/);
+ assert.doesNotMatch(cityOrigin.get("foundAddress").textContent,/Georgetown/);
+ console.log("PASS: typed origin rejects wrong-town street match and uses correct-town free-geocoder fallback (mocked)");
  let resolve;const pending={promise:new Promise(r=>{resolve=r})};
  const stale=boot("2026-10-27T11:00:00Z",pending);await stale.settle();
  await stale.click("locate");assert.equal(stale.get("yesLocation").disabled,true);
