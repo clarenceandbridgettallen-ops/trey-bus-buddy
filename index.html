@@ -225,7 +225,7 @@ function presentStop(i){
  const stale=stopInventoryTooOld();
  $("chooseStop").disabled=stale;
  $("stopName").textContent=selected.name;
- $("stopDetails").textContent="About "+selected.meters+" meters STRAIGHT-LINE (not a verified walk) · "+source+(selected.routes.length?" · "+selected.routes.slice(0,2).join(", "):"")+". Stop ID: "+selected.id+(stale?" WARNING: Stored stop locations are stale, future-dated, or undated. Walking directions are disabled. Confirm the stop with Coast RTA at 843-488-0865.":"")+sameNameStopCaution(selected)+nearbyDistinctStopCaution(selected);
+ $("stopDetails").textContent="About "+selected.meters+" meters STRAIGHT-LINE (not a verified walk) · "+source+(selected.routes.length?" · "+selected.routes.length+" stored route patterns (examples: "+selected.routes.slice(0,2).join("; ")+(selected.routes.length>2?"; "+(selected.routes.length-2)+" additional patterns not shown. Check the official Coast RTA route guide for all route details.":"")+")":"")+". Stop ID: "+selected.id+(stale?" WARNING: Stored stop locations are stale, future-dated, or undated. Walking directions are disabled. Confirm the stop with Coast RTA at 843-488-0865.":"")+sameNameStopCaution(selected)+nearbyDistinctStopCaution(selected);
  show("nearest");
  speak(stale?"The mapped stop inventory is not current. Walking directions are disabled. Confirm this stop with Coast RTA before traveling.":"I found a mapped bus stop. "+selected.name+", official stop ID "+selected.id+". The walking route is not verified. Open walking directions to check crossings and the correct side of the road. The stop ID might not appear on the physical sign."+sameNameStopCaution(selected)+nearbyDistinctStopCaution(selected));
 }
