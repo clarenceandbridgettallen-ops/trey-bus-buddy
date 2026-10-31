@@ -177,10 +177,11 @@ async function main(){
  // Keep technical diagnostics visually off the welcome screen without hiding safety warnings from screen readers.
  assert.match(html,/#dataStatus\{position:absolute!important;/,"Status should remain visually hidden but accessible");
  assert.doesNotMatch(html,/#dataStatus\{display:none!important\}/,"Do not remove safety warnings from the accessibility tree");
- assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" scheduled trips"));
+ assert.match(a.get("dataStatus").textContent,new RegExp(stops.stops.length+" mapped stops, "+journeys.trips.length+" stored trip templates \\(not verified departures\\)"));
  const dateLabel=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",year:"numeric"}).format(new Date(journeys.downloaded_utc));
  assert.ok(a.get("dataStatus").textContent.includes("Snapshot "+dateLabel),"Displayed snapshot date must match deterministic QA fixture");
  assert.match(a.get("dataStatus").textContent,/Not live arrivals; walking routes unverified/);
+ assert.doesNotMatch(a.get("dataStatus").textContent,/143 scheduled trips/,"Unverified frequency templates must never be labeled scheduled trips");
  assert.doesNotMatch(a.get("dataStatus").textContent,/WARNING: stored schedules are older than 7 days/,"Fresh snapshot must not be marked stale");
  const oldSnapshot=boot("2026-11-10T12:00:00Z");await oldSnapshot.settle();
  assert.match(oldSnapshot.get("dataStatus").textContent,/WARNING: stored stops or schedules are older than 7 days/,"Stale Coast RTA snapshot must show a rider-visible warning");
