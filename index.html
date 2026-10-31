@@ -407,11 +407,11 @@ function showPossiblePattern(pattern){
  $("planSteps").replaceChildren();steps=[];guideFirstDeparture=null;guideBoardingDeadlines=[];
  $("planStatus").textContent="POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP. These stored Coast RTA stop sequences may connect your locations, but frequency-based departures, actual transfer timing, current bus service, pedestrian crossings, boarding sides, and accessible walking routes are NOT verified. Do not travel based on this preview. Confirm the route and stops with Coast RTA at 843-488-0865.";
  const note=document.createElement("p");
- note.textContent="Starting stop is about "+Math.round(distance(pos,pattern.legs[0].from))+" meters straight-line away. Final stop is about "+Math.round(pattern.finalWalk)+" meters straight-line from the destination. Neither is a verified walk.";
+ note.textContent="Selected destination: "+destination.name+" ("+destination.address+"). Starting stop is about "+Math.round(distance(pos,pattern.legs[0].from))+" meters straight-line away. Final stop is about "+Math.round(pattern.finalWalk)+" meters straight-line from the destination. Neither is a verified walk.";
  $("planSteps").append(note);
  pattern.legs.forEach((leg,i)=>{
   const item=document.createElement("p");item.className="journey-detail";
-  item.textContent="POSSIBLE BUS "+(i+1)+": "+leg.trip.route+" from "+leg.from.name+" (stop ID "+leg.from.id+") to "+leg.to.name+" (stop ID "+leg.to.id+"). No departure or arrival time verified."+(i?" Transfer from the previous stop: "+Math.round(leg.transferWalk)+" meters straight-line; safe crossing and connection not verified.":"")+sameNameStopCaution(leg.from)+nearbyDistinctStopCaution(leg.from);
+  item.textContent="POSSIBLE BUS "+(i+1)+": "+leg.trip.route+" from "+leg.from.name+" (stop ID "+leg.from.id+") to "+leg.to.name+" (stop ID "+leg.to.id+"). "+(String(leg.trip.headsign||"").trim()?"Stored destination sign: "+String(leg.trip.headsign).trim()+". ":"Official destination sign not supplied in stored trip. ")+"Confirm the route, direction and destination sign with the driver before boarding. No departure or arrival time verified."+(i?" Transfer from the previous stop: "+Math.round(leg.transferWalk)+" meters straight-line; safe crossing and connection not verified.":"")+sameNameStopCaution(leg.from)+nearbyDistinctStopCaution(leg.from);
   $("planSteps").append(item);
  });
  const call=document.createElement("a");call.className="big";call.href="tel:8434880865";call.textContent="CALL COAST RTA TO VERIFY THIS ROUTE";$("planSteps").append(call);
