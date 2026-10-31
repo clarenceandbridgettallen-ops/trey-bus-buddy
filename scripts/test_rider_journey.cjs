@@ -154,6 +154,7 @@ async function main(){
  assert.equal(frequencyBlocked.get("guideStart").disabled,true,"Unverified frequency-based timetable must not start spoken boarding");
  assert.match(frequencyBlocked.get("planStatus").textContent,/frequency-based service.*START MY TRIP is disabled/);
  assert.match(frequencyBlocked.get("planStatus").textContent,/POSSIBLE ROUTE TEMPLATE ONLY, NOT A CONFIRMED TRIP/,"Unverified frequency template must not be presented as a scheduled journey");
+ assert.ok(html.includes('Confirm all service and stops with Coast RTA. "+$("planStatus").textContent'),"Unverified-frequency label must preserve existing long-walk and interpolated-time safety warnings");
  assert.match(frequencyBlocked.get("dataStatus").textContent,/frequency-based trips absent from this timetable/);
  assert.ok(frequencyBlocked.get("planSteps").children.length,"Keep itinerary preview available for review");
  await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
