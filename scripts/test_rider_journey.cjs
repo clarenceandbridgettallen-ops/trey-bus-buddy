@@ -103,10 +103,10 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   throw Error("Unexpected mock fetch: "+u);
  };
  const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -120,6 +120,22 @@ async function selectAndrews(a){
  await a.click("yesDestination");assert.equal(a.state().screen,"itinerary");
 }
 async function main(){
+ // An exact street match in a different Coast RTA town must not be offered
+ // when the rider explicitly typed Andrews, Surfside Beach or another service-area community.
+ const cityGuard=boot();await cityGuard.settle();
+ for(const [typed,expected] of [
+  ["123 Main Street Andrews","andrews"],
+  ["123 Main Street Surfside Beach","surfside beach"],
+  ["Walmart North Myrtle Beach","north myrtle beach"],
+  ["123 Main Street Murrells Inlet","murrells inlet"],
+  ["123 Main Street Georgetown","georgetown"],
+  ["2379 Cypress Circle Conway","conway"],
+  ["Andrews Pharmacy Myrtle Beach","myrtle beach"],
+  ["Walmart",null]
+ ])assert.equal(cityGuard.requestedCity(typed),expected,"Destination search must preserve explicitly requested town: "+typed);
+ assert.match(html,/const eligible=matches\.filter\(x=>score\(x\)>=75&&\(!requestedCity\|\|/);
+ console.log("PASS: typed destination town cannot be silently replaced with another Coast RTA community");
+
  const frequencyBlocked=boot("2026-10-27T11:00:00Z",null,null,"frequency-unverified");
  await frequencyBlocked.settle();await selectAndrews(frequencyBlocked);
  assert.equal(frequencyBlocked.get("guideStart").disabled,true,"Unverified frequency-based timetable must not start spoken boarding");
