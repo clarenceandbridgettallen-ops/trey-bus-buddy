@@ -66,9 +66,31 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_gtfs_accessibility_coverage.py'
       - name: Test official transfer-rule metadata audit (offline)
         run: python -m unittest discover -s scripts -p 'test_gtfs_transfer_coverage.py'
+      - name: Remove stale local frequency blocker report
+        run: rm -f docs/gtfs-frequency-readonly-audit.json
       - name: Download and validate Coast RTA GTFS
+        id: gtfs
+        continue-on-error: true
         run: python scripts/sync_coast_rta.py
+      - name: Save read-only frequency blocker evidence without publishing rider data
+        if: steps.gtfs.outcome == 'failure'
+        run: |
+          if [ -f docs/gtfs-frequency-readonly-audit.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/gtfs-frequency-readonly-audit.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Record official GTFS frequency blocker without changing rider schedules"
+              git push
+            fi
+          fi
+      - name: Keep unsafe GTFS imports failed closed
+        if: steps.gtfs.outcome == 'failure'
+        run: |
+          echo "Official GTFS import remains blocked; rider snapshots were not refreshed."
+          exit 1
       - name: Commit verified stop inventory and audit
+        if: steps.gtfs.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
