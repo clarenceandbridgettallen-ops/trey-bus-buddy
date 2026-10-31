@@ -173,6 +173,14 @@ async function main(){
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/Confirm the route, direction and destination sign with the driver before boarding/.test(x.textContent)),"Untimed route patterns must warn against boarding the wrong direction");
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/Official destination sign not supplied|Stored destination sign:/.test(x.textContent)),"Untimed preview must distinguish missing headsigns from supplied ones");
  assert.ok(!lateFrequency.get("planSteps").children.some(x=>/OPEN WALK|VIEW FINAL WALKING ROUTE/.test(x.textContent)),"Do not offer unverified pedestrian navigation in topology-only mode");
+ const readPreview=lateFrequency.get("planSteps").children.find(x=>/READ POSSIBLE ROUTE ALOUD/.test(x.textContent));
+ assert.ok(readPreview&&!readPreview.disabled,"Untimed route preview must offer accessible speech review when speech synthesis is supported");
+ const beforeRead=lateFrequency.spoken.length;
+ await readPreview.onclick();
+ assert.equal(lateFrequency.spoken.length,beforeRead+1,"Reading the route preview must speak only on rider request");
+ assert.match(lateFrequency.spoken.at(-1),/NOT A CONFIRMED TRIP.*Do not travel based on this preview/i,"Spoken route preview must lead with a safety disclaimer");
+ assert.match(lateFrequency.spoken.at(-1),/stop ID TL-/,"Spoken route preview must include official stop IDs");
+ assert.equal(lateFrequency.get("guideStart").disabled,true,"Reading an unconfirmed preview must never authorize live guidance");
  assert.match(lateFrequency.get("planFare").textContent,/not a confirmed trip/);
  await lateFrequency.click("guideStart");assert.equal(lateFrequency.state().screen,"itinerary");
  console.log("PASS: late frequency-based service offers untimed stop/route-pattern review without false departures or guided navigation");
