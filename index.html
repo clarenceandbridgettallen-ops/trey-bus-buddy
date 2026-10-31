@@ -252,6 +252,10 @@ function placeMatchScore(query,place){
  if(tokens.some(x=>/^\d+$/.test(x)&&!available.has(x)))return 0;
  if(name===wanted||address===wanted||address.includes(wanted))return 100;
  if(name.includes(wanted))return 95;
+ // Directories disagree on brand spacing (PruittHealth versus Pruitt Health).
+ // Preserve the numeric street-address check above; never guess a different house number.
+ const compactWanted=wanted.replace(/\s+/g,""),compactName=name.replace(/\s+/g,"");
+ if(compactWanted.length>=6&&compactName.includes(compactWanted))return 95;
  return Math.round(100*tokens.filter(x=>available.has(x)).length/tokens.length);
 }
 
