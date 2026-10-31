@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity, audit_boarding_permissions, write_frequency_blocker_audit
+from sync_coast_rta import check_frequency_coverage, inspect_frequency_windows, summarize_frequency_routes, inspect_frequency_templates, compare_stop_inventory, inspect_stop_record_integrity, audit_boarding_permissions, write_frequency_blocker_audit, compare_stop_route_memberships
 
 
 class FrequencyCoverageTests(unittest.TestCase):
@@ -332,3 +332,62 @@ class BoardingPermissionAuditTests(unittest.TestCase):
             self.assertIsNone(saved['stored_stop_comparison'])
             self.assertEqual(saved['official_stop_rows'],0)
             self.assertFalse(saved['published_rider_snapshot_updated'])
+
+    def test_blocked_audit_preserves_route_and_boarding_drift_even_with_identical_stop_ids(self):
+        official = [
+            {'stop_id':'TL-1','stop_name':'Georgetown A','stop_lat':'33.37','stop_lon':'-79.28'},
+            {'stop_id':'TL-2','stop_name':'Georgetown B','stop_lat':'33.38','stop_lon':'-79.29'},
+        ]
+        stored = [
+            {'id':'TL-1','name':'Georgetown A','lat':33.37,'lon':-79.28,'routes':['14']},
+            {'id':'TL-2','name':'Georgetown B','lat':33.38,'lon':-79.29,'routes':[]},
+        ]
+        times = [
+            {'trip_id':'trip14','stop_id':'TL-1','stop_sequence':'1',
+             'arrival_time':'08:00:00','departure_time':'08:00:00','pickup_type':'1'},
+            {'trip_id':'trip14','stop_id':'TL-2','stop_sequence':'2',
+             'arrival_time':'08:15:00','departure_time':'08:15:00'},
+        ]
+        route_report = compare_stop_route_memberships(
+            official,[{'route_id':'r14','route_short_name':'14'}],
+            [{'trip_id':'trip14','route_id':'r14'}],times,stored)
+        boarding_report = audit_boarding_permissions(
+            times,[{'id':'trip14','stops':[{'seq':1,'stop':'TL-1'},
+                                          {'seq':2,'stop':'TL-2'}]}])
+        frequencies = [{'trip_id':'trip14','start_time':'08:00:00',
+                        'end_time':'09:00:00','headway_secs':'900','exact_times':'0'}]
+        trip_details = {'trip14':{'route':'14','service':'weekday'}}
+        templates = inspect_frequency_templates(
+            frequencies,trip_details,times,[{'service_id':'weekday'}],[])
+        service_date = {'service_date':'20261031','status':'diagnostic_only_not_departure_times',
+                        'active_rows':1}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'audit.json'
+            report = write_frequency_blocker_audit(
+                path,frequencies,trip_details,official,stored,
+                route_membership_report=route_report,
+                boarding_permission_report=boarding_report,
+                frequency_template_report=templates,
+                service_date_report=service_date)
+            saved = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(saved,report)
+        self.assertEqual(saved['stored_stop_comparison']['new_in_official_feed_count'],0)
+        self.assertEqual(saved['stop_route_membership_comparison']['official_only_membership_count'],1)
+        self.assertEqual(saved['stop_route_membership_comparison']['official_only_membership_examples'],
+                         [{'stop_id':'TL-2','route':'14'}])
+        self.assertEqual(saved['boarding_permission_audit']['rows_with_any_restriction'],1)
+        self.assertEqual(saved['boarding_permission_audit']['restricted_fields_not_represented_in_snapshot'],1)
+        self.assertEqual(saved['frequency_template_audit']['known_frequency_trip_templates'],1)
+        self.assertEqual(saved['frequency_service_date_audit'],service_date)
+        self.assertFalse(saved['published_rider_snapshot_updated'])
+        self.assertFalse(saved['exact_departures_verified'])
+        self.assertNotIn('scheduled_departures',saved)
+
+    def test_missing_snapshots_never_invent_route_or_boarding_parity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = write_frequency_blocker_audit(
+                Path(directory)/'audit.json',[],{},[],None)
+        self.assertIsNone(report['stop_route_membership_comparison'])
+        self.assertIsNone(report['boarding_permission_audit'])
+        self.assertIsNone(report['frequency_template_audit'])
+        self.assertIsNone(report['frequency_service_date_audit'])
