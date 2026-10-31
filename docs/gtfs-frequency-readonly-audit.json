@@ -1,0 +1,396 @@
+{
+  "accessible_walking_paths_verified": false,
+  "checked_utc": "2026-10-31T04:45:32.125993+00:00",
+  "exact_departures_verified": false,
+  "frequency_route_diagnostic": {
+    "affected_routes": 31,
+    "routes": [
+      {
+        "exact_times_modes": {
+          "0": 12
+        },
+        "frequency_rows": 12,
+        "route": "Rt 10 Myrtle Beach Local",
+        "service_ids": [
+          "TL-209"
+        ],
+        "unique_trip_ids": 12
+      },
+      {
+        "exact_times_modes": {
+          "0": 13
+        },
+        "frequency_rows": 13,
+        "route": "Rt 11 River Oaks / Intl Dr / Broadway at the Beach",
+        "service_ids": [
+          "TL-212"
+        ],
+        "unique_trip_ids": 13
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 11H Startek Dr / Myrtle Beach",
+        "service_ids": [
+          "TL-213"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 11X Conway / Startek Dr",
+        "service_ids": [
+          "TL-229"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 14X Andrews / Georgetown",
+        "service_ids": [
+          "TL-178"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 14X Georgetown / Sampit Park",
+        "service_ids": [
+          "TL-178"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 12
+        },
+        "frequency_rows": 12,
+        "route": "Rt 15S Myrtle Beach / South Strand / Murrells Inlet Tidelands",
+        "service_ids": [
+          "TL-215"
+        ],
+        "unique_trip_ids": 12
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 15SH Myrtle Beach/South Strand",
+        "service_ids": [
+          "TL-217"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 2
+        },
+        "frequency_rows": 2,
+        "route": "Rt 15SH Tidelands/Myrtle Beach",
+        "service_ids": [
+          "TL-216"
+        ],
+        "unique_trip_ids": 2
+      },
+      {
+        "exact_times_modes": {
+          "0": 5
+        },
+        "frequency_rows": 5,
+        "route": "Rt 16 Georgetown / Myrtle Beach",
+        "service_ids": [
+          "TL-192"
+        ],
+        "unique_trip_ids": 5
+      },
+      {
+        "exact_times_modes": {
+          "0": 2
+        },
+        "frequency_rows": 2,
+        "route": "Rt 16 Limited Gtwn/MB",
+        "service_ids": [
+          "TL-179"
+        ],
+        "unique_trip_ids": 2
+      },
+      {
+        "exact_times_modes": {
+          "0": 2
+        },
+        "frequency_rows": 2,
+        "route": "Rt 16 Limited MB/Gtwn",
+        "service_ids": [
+          "TL-179"
+        ],
+        "unique_trip_ids": 2
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 16H Georgetown / Myrtle Beach",
+        "service_ids": [
+          "TL-179"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 17X Conway/Coastal North Town Center",
+        "service_ids": [
+          "TL-227"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 17X Conway/Myrtle Beach",
+        "service_ids": [
+          "TL-228"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 5
+        },
+        "frequency_rows": 5,
+        "route": "Rt 3 Conway / Bucksport",
+        "service_ids": [
+          "TL-199",
+          "TL-200"
+        ],
+        "unique_trip_ids": 5
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X Conway/Andrews",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X Conway/Georgetown via 701",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X Conway/Georgetown via Choppee",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 2
+        },
+        "frequency_rows": 2,
+        "route": "Rt 4X Conway/Trinity/Georgetown",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 2
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X Plantersville/Georgetown via 701",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X via 701/Trinity/Conway",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X via Andrews/Conway",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 4X via Choppee/Conway",
+        "service_ids": [
+          "TL-231"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 8
+        },
+        "frequency_rows": 8,
+        "route": "Rt 7 Myrtle Beach / Conway",
+        "service_ids": [
+          "TL-202"
+        ],
+        "unique_trip_ids": 8
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt 7A 6:40 AM Conway/Myrtle Beach",
+        "service_ids": [
+          "TL-206"
+        ],
+        "unique_trip_ids": 1
+      },
+      {
+        "exact_times_modes": {
+          "0": 4
+        },
+        "frequency_rows": 4,
+        "route": "Rt 7H 7PM & 8PM Myrtle Beach/Conway",
+        "service_ids": [
+          "TL-207"
+        ],
+        "unique_trip_ids": 4
+      },
+      {
+        "exact_times_modes": {
+          "0": 3
+        },
+        "frequency_rows": 3,
+        "route": "Rt 7H Conway/Myrtle Beach via Oak Tree Farms",
+        "service_ids": [
+          "TL-205"
+        ],
+        "unique_trip_ids": 3
+      },
+      {
+        "exact_times_modes": {
+          "0": 4
+        },
+        "frequency_rows": 4,
+        "route": "Rt 7X Conway/Myrtle Beach",
+        "service_ids": [
+          "TL-203"
+        ],
+        "unique_trip_ids": 4
+      },
+      {
+        "exact_times_modes": {
+          "0": 2
+        },
+        "frequency_rows": 2,
+        "route": "Rt 7X Myrtle Beach/Conway",
+        "service_ids": [
+          "TL-204"
+        ],
+        "unique_trip_ids": 2
+      },
+      {
+        "exact_times_modes": {
+          "0": 1
+        },
+        "frequency_rows": 1,
+        "route": "Rt7H 6 PM Myrtle Beach/Oak Tree Farms",
+        "service_ids": [
+          "TL-208"
+        ],
+        "unique_trip_ids": 1
+      }
+    ]
+  },
+  "frequency_rows": 93,
+  "frequency_window_diagnostic": {
+    "exact_times_modes": {
+      "0": 93
+    },
+    "headway_secs_max": 10180,
+    "headway_secs_min": 1324,
+    "invalid_row_count": 0,
+    "invalid_row_numbers": [],
+    "overlap_count": 0,
+    "overlapping_trip_windows": [],
+    "unknown_trip_count": 0,
+    "unknown_trip_ids": [],
+    "window_end_latest_secs": 75600,
+    "window_start_earliest_secs": 17100
+  },
+  "live_arrivals_verified": false,
+  "official_feed_url": "https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx",
+  "official_stop_record_integrity": {
+    "distinct_nonempty_ids": 525,
+    "duplicate_id_count": 0,
+    "duplicate_ids": [],
+    "missing_id_rows": 0,
+    "raw_rows": 525,
+    "unusable_coordinate_examples": [],
+    "unusable_coordinate_rows": 0
+  },
+  "official_stop_rows": 525,
+  "published_rider_snapshot_updated": false,
+  "status": "blocked_frequency_import_read_only",
+  "stored_stop_comparison": {
+    "coordinate_changes_over_100m": [],
+    "coordinate_changes_over_100m_count": 0,
+    "coordinate_changes_over_10m": [],
+    "coordinate_changes_over_10m_count": 0,
+    "name_changes": [],
+    "name_changes_count": 0,
+    "new_in_official_feed_count": 0,
+    "new_in_official_feed_ids": [],
+    "not_in_official_feed_count": 0,
+    "not_in_official_feed_ids": [],
+    "official_valid_stop_ids": 525,
+    "stored_valid_stop_ids": 525
+  }
+}
