@@ -169,6 +169,9 @@ async function main(){
  assert.equal(lateFrequency.get("guideStart").disabled,true,"A route-pattern-only result must never enable guided boarding");
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/POSSIBLE BUS 1:/.test(x.textContent)),"Show stored route/stop pattern instead of inventing a departure");
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/stop ID TL-/.test(x.textContent)),"Preview must identify official stop IDs");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/Selected destination:/.test(x.textContent)),"Untimed preview must repeat the rider-confirmed destination");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/Confirm the route, direction and destination sign with the driver before boarding/.test(x.textContent)),"Untimed route patterns must warn against boarding the wrong direction");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/Official destination sign not supplied|Stored destination sign:/.test(x.textContent)),"Untimed preview must distinguish missing headsigns from supplied ones");
  assert.ok(!lateFrequency.get("planSteps").children.some(x=>/OPEN WALK|VIEW FINAL WALKING ROUTE/.test(x.textContent)),"Do not offer unverified pedestrian navigation in topology-only mode");
  assert.match(lateFrequency.get("planFare").textContent,/not a confirmed trip/);
  await lateFrequency.click("guideStart");assert.equal(lateFrequency.state().screen,"itinerary");
