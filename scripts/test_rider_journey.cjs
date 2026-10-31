@@ -31,6 +31,12 @@ journeys.downloaded_utc="2026-10-27T10:57:50Z";
 console.log("PASS: committed stop/trip timestamp coherence and deterministic QA fixture dates");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
+// Stop and timetable loading failures must be distinguishable from a pending download.
+assert.match(script,/let scheduleLoadState="loading",stopLoadState="loading"/);
+assert.match(script,/stopLoadState="failed";source="";refreshDataStatus/);
+assert.match(script,/stopLoadState="ready";source="Official Coast RTA GTFS"/);
+assert.match(script,/const unavailable=stopLoadState==="failed"\|\|scheduleLoadState==="failed"/);
+
 // Stale stop coordinates must remain explicitly warned about even if the journey
 // timetable fails to load. The untimed fallback must also warn on stale data.
 {
@@ -568,7 +574,12 @@ async function main(){
  assert.match(schedulesDown.get("dataStatus").textContent,/trip schedules unavailable/i);
  await selectAndrews(schedulesDown);
  assert.equal(schedulesDown.get("guideStart").disabled,true);
- console.log("PASS: unavailable journey schedule is visibly disclosed and disables guided trip");
+ assert.match(schedulesDown.get("planStatus").textContent,/route data could not be loaded/i,"A failed timetable must not leave a permanent Loading message");
+ assert.match(schedulesDown.get("planStatus").textContent,/Do not start a trip/i,"A failed timetable must fail closed");
+ assert.match(schedulesDown.get("planFare").textContent,/Fare unavailable; no trip verified/);
+ assert.equal(schedulesDown.get("planSteps").children.length,1,"Failed timetable must offer one actionable contact option, not stale route steps");
+ assert.equal(schedulesDown.get("planSteps").children[0].href,"tel:8434880865");
+ console.log("PASS: unavailable journey schedule shows actionable failure, clears stale steps, and disables guided trip");
  const nearby=boot();await nearby.settle();await nearby.click("locate");await nearby.settle();await nearby.click("yesLocation");await nearby.click("goNearest");
  assert.equal(nearby.state().screen,"nearest");
  assert.match(nearby.get("stopDetails").textContent,/STRAIGHT-LINE \(not a verified walk\)/);
