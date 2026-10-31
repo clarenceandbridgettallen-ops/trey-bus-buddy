@@ -36,6 +36,10 @@ assert.match(script,/let scheduleLoadState="loading",stopLoadState="loading"/);
 assert.match(script,/stopLoadState="failed";source="";refreshDataStatus/);
 assert.match(script,/stopLoadState="ready";source="Official Coast RTA GTFS"/);
 assert.match(script,/const unavailable=stopLoadState==="failed"\|\|scheduleLoadState==="failed"/);
+assert.match(script,/async function fetchRouteData\(url\)/,"Local GTFS fetch must have a timeout wrapper");
+assert.match(script,/controller\.abort\(\),15000/,"Stalled GTFS requests must abort within 15 seconds");
+assert.match(script,/stopLoadState="failed";source="";refreshDataStatus\(\);if\(destination&&screen==="itinerary"\)renderTrip\(\)/,"A stop-feed failure must update an already-visible itinerary");
+assert.match(script,/scheduleLoadState="failed";[\s\S]*?if\(destination&&screen==="itinerary"\)renderTrip\(\)/,"A timetable failure must update an already-visible itinerary");
 
 // Stale stop coordinates must remain explicitly warned about even if the journey
 // timetable fails to load. The untimed fallback must also warn on stale data.
@@ -122,25 +126,26 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const document={getElementById:get,querySelectorAll:()=>ids.map(get),querySelector:()=>new El("heading","H2"),createElement:t=>new El("",t.toUpperCase()),createTextNode:t=>({textContent:t})};
  let cancellations=0;const spoken=[],speechSynthesis={cancel(){cancellations++},speak:u=>spoken.push(u.text)};
  // Exercise the supported reduced-motion path so visual transition timers cannot delay journey assertions.
-  const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"})};
+  const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"}),setTimeout:()=>1,clearTimeout:()=>{}};
  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[clockInstant]))}static now(){return new Date(clockInstant).getTime()}}
  // Mock places must have the correct city; a wrong-town result is now rejected intentionally.
  const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:/Andrews/i.test(s.name)?"Andrews":/Conway/i.test(s.name)?"Conway":"Georgetown",state:"South Carolina"}});
+ let rejectStopDownload=null,rejectJourneyDownload=null;
  const fetch=async url=>{
   const u=String(url);
-  if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
-  if(u.includes("coast-rta-journeys.json"))return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}};
+  if(u.includes("coast-rta-stops.json")){if(fault==="stops-delayed-failure")return new Promise((_resolve,reject)=>{rejectStopDownload=reject});return {ok:fault!=="stops-offline",json:async()=>stops}}
+  if(u.includes("coast-rta-journeys.json")){if(fault==="journeys-delayed-failure")return new Promise((_resolve,reject)=>{rejectJourneyDownload=reject});return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}}}
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("2379 cypress circle conway"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[origin.lon,origin.lat]},properties:{name:"2379 Cypress Circle",housenumber:"2379",street:"Cypress Circle",city:"Georgetown",state:"South Carolina"}}]})};if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:u.includes("2379%20Cypress%20Circle")?[{lat:String(interchange.lat+0.01),lon:String(interchange.lon+0.01),name:"PruittHealth - Conway at Conway Medical Center",display_name:"2379 Cypress Circle, Conway, SC 29526"}]:[]};
   throw Error("Unexpected mock fetch: "+u);
  };
- const ctx={document,window,navigator,fetch,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
+ const ctx={document,window,navigator,fetch,AbortController:class{constructor(){this.signal={}}abort(){}},speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
  const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage"))};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -154,6 +159,21 @@ async function selectAndrews(a){
  await a.click("yesDestination");assert.equal(a.state().screen,"itinerary");
 }
 async function main(){
+ // Reproduce a failure arriving AFTER the rider has already opened the itinerary.
+ // The old code left the loading message in place forever; the new handlers must
+ // re-render a fail-closed itinerary without requiring the rider to leave/re-enter.
+ for(const fault of ["stops-delayed-failure","journeys-delayed-failure"]){
+  const a=boot("2026-10-27T11:00:00Z",null,null,fault);
+  await a.settle();await selectAndrews(a);
+  assert.match(a.get("planStatus").textContent,/Loading Coast RTA route data/);
+  if(fault==="stops-delayed-failure")a.failStopDownload();else a.failJourneyDownload();
+  await a.settle();
+  assert.match(a.get("planStatus").textContent,/route data could not be loaded/,"Late data failure must update the active itinerary");
+  assert.equal(a.get("guideStart").disabled,true,"A failed download must not enable guided boarding");
+  assert.ok(a.get("planSteps").children.some(x=>x.href==="tel:8434880865"),"A rider must get a direct Coast RTA help link");
+ }
+ console.log("PASS: delayed stop/timetable download failures refresh the visible itinerary and fail closed");
+
  // An exact street match in a different Coast RTA town must not be offered
  // when the rider explicitly typed Andrews, Surfside Beach or another service-area community.
  const cityGuard=boot();await cityGuard.settle();
