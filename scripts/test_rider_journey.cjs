@@ -9,6 +9,11 @@ assert.match(html, /id="dataStatus"[^>]*role="status"[^>]*aria-live="polite"/);
 assert.ok(html.includes("#dataStatus{position:absolute!important;"),"Data status must be visually hidden, not removed from accessibility tree");
 assert.ok(!html.includes("#dataStatus{display:none!important}"),"Do not hide safety status from screen readers");
 console.log("PASS: Coast RTA data/frequency warnings remain available to screen readers (source-level)");
+// The nearest geographic stop is not necessarily a stop served by the rider's planned route.
+assert.match(html,/id="findBoarding">SHOW NEARBY STOPS \(NOT TRIP-SPECIFIC\)/);
+assert.match(html,/NOT necessarily a stop served by a bus to your destination/);
+console.log("PASS: trip planning does not mislabel nearest mapped stop as a verified route boarding stop");
+
 const committedStops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
 const committedJourneys=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-journeys.json"),"utf8"));
 // Test clocks are fixed in October 2026. Keep fixture timestamps fixed as well,
@@ -562,6 +567,8 @@ async function main(){
  Object.assign(nameRisk.state().pos,{lat:bucksportA.lat,lon:bucksportA.lon});
  await nameRisk.click("goNearest");
  assert.equal(nameRisk.state().screen,"nearest");
+ assert.match(nameRisk.get("stopDetails").textContent,/NOT necessarily a stop served by a bus to your destination/);
+ assert.match(nameRisk.spoken.at(-1),/not necessarily a boarding stop for your destination/);
  assert.equal(nameRisk.get("stopName").textContent.trim(),"Bucksport Marina");
  assert.match(nameRisk.get("stopDetails").textContent,/Another mapped Coast RTA stop shares this name more than 1 km away/);
  assert.match(nameRisk.spoken.at(-1),/Confirm the official stop ID and exact location with Coast RTA/);
