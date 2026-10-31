@@ -126,7 +126,7 @@ function stopInventoryTooOld(){
 function scheduleTimingVerified(){return journeys?.frequency_coverage?.status==="no_frequency_rows"}
 function refreshDataStatus(){
  if(!official?.stops){reportDataStatus("Coast RTA stop data unavailable. Do not rely on this app for boarding stops or live arrivals.");return}
- const tripStatus=journeys?.trips?journeys.trips.length+" scheduled trips":scheduleLoadState==="failed"?"trip schedules unavailable":"trip schedules loading";
+ const tripStatus=journeys?.trips?journeys.trips.length+" stored trip templates (not verified departures)":scheduleLoadState==="failed"?"trip schedules unavailable":"trip schedules loading";
  const snapshot=journeys?.downloaded_utc||official.downloaded_utc;const staleWarning=transitDataTooOld()?" WARNING: stored stops or schedules are older than 7 days, future-dated, undated, or refreshed more than 24 hours apart. Confirm current service with Coast RTA.":"";
   reportDataStatus("Stored Coast RTA GTFS: "+official.stops.length+" mapped stops, "+tripStatus+". Snapshot "+snapshotDate(snapshot)+". Not live arrivals; walking routes unverified."+staleWarning+(journeys?.trips&&!scheduleTimingVerified()?" WARNING: Official Coast RTA GTFS contains frequency-based trips absent from this timetable. Stored departure times are unverified; do not use them for boarding.":""));
 }
