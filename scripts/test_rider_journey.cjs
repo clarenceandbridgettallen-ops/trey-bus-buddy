@@ -30,6 +30,30 @@ stops.downloaded_utc="2026-10-27T10:57:50Z";
 journeys.downloaded_utc="2026-10-27T10:57:50Z";
 console.log("PASS: committed stop/trip timestamp coherence and deterministic QA fixture dates");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+
+// Stale stop coordinates must remain explicitly warned about even if the journey
+// timetable fails to load. The untimed fallback must also warn on stale data.
+{
+ const begin=script.indexOf("function transitDataTooOld(){");
+ const end=script.indexOf("async function loadStops()",begin);
+ assert.ok(begin>=0&&end>begin,"Freshness and status handlers must exist");
+ const actual=script.slice(begin,end);
+ const status=new Function("official","journeys","scheduleLoadState","reportDataStatus","snapshotDate",
+  actual+";refreshDataStatus()");
+ let warning="";
+ status({stops:[{id:"TL-QA"}],downloaded_utc:"2020-01-01T00:00:00Z"},null,"failed",
+  message=>{warning=message},()=>"Jan 1");
+ assert.match(warning,/older than 7 days/,"A stale stop inventory must be announced even if timetable loading failed");
+ let fresh="";
+ status({stops:[{id:"TL-QA"}],downloaded_utc:new Date().toISOString()},null,"failed",
+  message=>{fresh=message},()=>"Today");
+ assert.doesNotMatch(fresh,/older than 7 days/,"A fresh stop inventory must not receive a false stale warning");
+ const fallback=script.slice(script.indexOf("function showPossiblePattern(pattern){"),script.indexOf("function boardingDepartureStatus()"));
+ assert.match(fallback,/stopInventoryTooOld\(\)\|\|transitDataTooOld\(\)/,"Untimed fallback must check both stop and timetable freshness");
+ assert.match(fallback,/This possible route pattern may be outdated/,"Untimed fallback must visibly disclose stale route patterns");
+ console.log("PASS: stale stop-only data and untimed route previews disclose freshness risks");
+}
+
 // Two current official Coast RTA pages conflict: contactless-fare-payment says 5–7 PM,
 // how-to-ride says 3–6 PM. Do not assert either is the authoritative peak window.
 assert.match(html,/official pages disagree on afternoon peak hours \(3–6 PM versus 5–7 PM\)/);
