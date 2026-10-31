@@ -388,7 +388,8 @@ function possibleRoutePattern(){
      const candidate={stop:edge.to,legs,used:[...path.used,edge.trip.route],walk:path.walk+transferWalk};
      if(endWalk<=1800)solutions.push({...candidate,finalWalk:endWalk});
      if(depth===3||next.length>=3000)continue;
-     const key=(depth+1)+"|"+edge.to.id+"|"+edge.trip.route;
+     // Preserve distinct prior-route histories: the same stop and final route can still have different valid onward transfers.
+     const key=(depth+1)+"|"+edge.to.id+"|"+edge.trip.route+"|"+candidate.used.slice().sort().join(",");
      if(visited.has(key))continue;
      visited.add(key);next.push(candidate);
     }
