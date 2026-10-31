@@ -117,6 +117,19 @@ class TripTransferDiagnosticTests(unittest.TestCase):
         result = self.check(frequencies=freq)
         self.assertEqual(result['feasibility'], 'impossible_by_time_bounds')
 
+    def test_approximate_timepoint_cannot_prove_impossible_transfer(self):
+        freq = [dict(r) for r in self.freq]
+        freq[1]['start_time'] = '07:50:00'
+        freq[1]['end_time'] = '08:10:00'
+        for index in (1, 2):
+            with self.subTest(approximate_event_index=index):
+                rows = [dict(row) for row in self.times]
+                rows[index]['timepoint'] = '0'
+                result = self.check(frequencies=freq, stop_times=rows)
+                self.assertTrue(result['approximate_stop_times_used'])
+                self.assertEqual(result['feasibility'], 'unknown_do_not_navigate')
+                self.assertFalse(result['actual_departures_verified'])
+
     def test_invalid_date_and_unknown_trip_fail_closed(self):
         self.assertEqual(self.check(service_date='20260230')['reason'],
                          'invalid_service_date')
