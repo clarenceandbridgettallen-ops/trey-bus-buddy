@@ -12,6 +12,9 @@ console.log("PASS: Coast RTA data/frequency warnings remain available to screen 
 // The nearest geographic stop is not necessarily a stop served by the rider's planned route.
 assert.match(html,/id="findBoarding">SHOW NEARBY STOPS \(NOT TRIP-SPECIFIC\)/);
 assert.match(html,/NOT necessarily a stop served by a bus to your destination/);
+assert.match(html,/id="goNearest">FIND NEARBY MAPPED STOPS/,"Nearest stop must not promise to take the rider there");
+assert.match(html,/id="chooseStop">REVIEW EXTERNAL WALKING DIRECTIONS/,"Walking review must not imply a verified route");
+assert.match(html,/Bus Buddy has NOT verified this walking route, accessible sidewalks, crossings, or the boarding side/,"External map warning must disclose unverified pedestrian safety");
 console.log("PASS: trip planning does not mislabel nearest mapped stop as a verified route boarding stop");
 
 const committedStops=JSON.parse(fs.readFileSync(path.join(root,"data/coast-rta-stops.json"),"utf8"));
@@ -505,7 +508,8 @@ async function main(){
  await nearby.get("stopOptions").children[0].onclick();
  await nearby.click("chooseStop");assert.equal(nearby.state().screen,"walk");
  assert.match(nearby.get("walkStop").textContent,/official stop ID TL-/);
- assert.ok(nearby.spoken.some(s=>/Ready to walk to .*official stop ID TL-/.test(s)),"Walk-start spoken guidance must include stop ID");
+ assert.ok(nearby.spoken.some(s=>/Review external walking directions for .*official stop ID TL-/.test(s)),"Walking-review spoken guidance must include stop ID");
+  assert.ok(nearby.spoken.some(s=>/walking route, accessible crossings, and boarding side are not verified/i.test(s)),"Spoken review must disclose unverified pedestrian safety");
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
  // Conway Terminal has many route patterns; a two-pattern preview must not imply exclusivity.
