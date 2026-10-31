@@ -332,6 +332,33 @@ def audit_boarding_permissions(stop_times, stored_trips):
          "accessible_pedestrian_path_verified":False}
 
 
+
+def write_frequency_blocker_audit(path, frequency_rows, trip_details, stop_rows, stored_stops=None):
+ """Persist read-only agency GTFS evidence without changing rider stop/timetable data.
+
+ This is a *retrieval-time diagnostic*, not a certified agency publication date,
+ a departure timetable, a safe walking route, or a real-time vehicle position.
+ """
+ report={
+  "status":"blocked_frequency_import_read_only",
+  "checked_utc":datetime.datetime.now(datetime.timezone.utc).isoformat(),
+  "official_feed_url":FEED,
+  "official_stop_rows":len(stop_rows),
+  "official_stop_record_integrity":inspect_stop_record_integrity(stop_rows,True),
+  "stored_stop_comparison":compare_stop_inventory(stop_rows,stored_stops) if stored_stops is not None else None,
+  "frequency_rows":len(frequency_rows),
+  "frequency_window_diagnostic":inspect_frequency_windows(frequency_rows,set(trip_details)),
+  "frequency_route_diagnostic":summarize_frequency_routes(frequency_rows,trip_details),
+  "published_rider_snapshot_updated":False,
+  "exact_departures_verified":False,
+  "live_arrivals_verified":False,
+  "accessible_walking_paths_verified":False,
+ }
+ path=Path(path)
+ path.parent.mkdir(parents=True,exist_ok=True)
+ path.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+ return report
+
 def main():
  raw=get(FEED)
  if not zipfile.is_zipfile(io.BytesIO(raw)):raise RuntimeError("Coast RTA feed did not return a valid ZIP")
@@ -390,6 +417,15 @@ def main():
    pair_report=audit_real_transfer_pairs(frequency_rows,trip_details,times,
                                         calendars,exceptions,local_day,limit=8)
    print("GTFS REAL TRIP PAIR DIAGNOSTIC "+json.dumps(pair_report,sort_keys=True),flush=True)
+  if frequency_rows:
+   # Write a durable diagnostic BEFORE the existing fail-closed guard raises.
+   # Never refresh rider snapshots from a frequency feed we cannot schedule.
+   blocker=write_frequency_blocker_audit(
+    ROOT/"docs/gtfs-frequency-readonly-audit.json",frequency_rows,trip_details,
+    stop_rows,stored.get("stops",[]) if snapshot_path.exists() else None)
+   print("GTFS READ-ONLY FREQUENCY BLOCKER AUDIT "+json.dumps({
+    "checked_utc":blocker["checked_utc"],"frequency_rows":blocker["frequency_rows"],
+    "published_rider_snapshot_updated":False},sort_keys=True),flush=True)
   frequency_coverage=check_frequency_coverage("frequencies.txt" in names,frequency_rows,set(trip_details))
   print("GTFS frequency coverage: "+json.dumps(frequency_coverage),flush=True)
   journey_trips={}
