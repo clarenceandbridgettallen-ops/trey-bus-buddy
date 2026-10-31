@@ -92,7 +92,8 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"})};
  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[clockInstant]))}static now(){return new Date(clockInstant).getTime()}}
- const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:"Georgetown",state:"South Carolina"}});
+ // Mock places must have the correct city; a wrong-town result is now rejected intentionally.
+ const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:/Andrews/i.test(s.name)?"Andrews":/Conway/i.test(s.name)?"Conway":"Georgetown",state:"South Carolina"}});
  const fetch=async url=>{
   const u=String(url);
   if(u.includes("coast-rta-stops.json"))return {ok:fault!=="stops-offline",json:async()=>stops};
