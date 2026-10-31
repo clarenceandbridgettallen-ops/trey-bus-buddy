@@ -460,6 +460,17 @@ async function main(){
  assert.ok(nearby.spoken.some(s=>/Ready to walk to .*official stop ID TL-/.test(s)),"Walk-start spoken guidance must include stop ID");
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
+ // Conway Terminal has many route patterns; a two-pattern preview must not imply exclusivity.
+ assert.ok(html.includes("CHECK ALL OFFICIAL COAST RTA ROUTES"));
+ assert.ok(html.includes("https://coastrta.com/routes-and-schedules/"));
+ const routeHub=boot();await routeHub.settle();await routeHub.click("locate");await routeHub.settle();await routeHub.click("yesLocation");
+ Object.assign(routeHub.state().pos,{lat:interchange.lat,lon:interchange.lon});
+ await routeHub.click("goNearest");
+ assert.equal(routeHub.get("stopName").textContent,"Conway Terminal");
+ assert.match(routeHub.get("stopDetails").textContent,new RegExp(interchange.routes.length+" stored route patterns"));
+ assert.match(routeHub.get("stopDetails").textContent,/additional patterns not shown/);
+ assert.match(routeHub.get("stopDetails").textContent,/official Coast RTA route guide/);
+ console.log("PASS: high-connection stops disclose route-pattern count and link to agency schedules");
  nearby.setInstant("2026-11-05T12:00:00Z"); // Simulate the stored stop inventory aging while the walk screen remains open.
  let blockedWalk=false;
  const blockedResult=nearby.get("walkLink").onclick({preventDefault(){blockedWalk=true}});
