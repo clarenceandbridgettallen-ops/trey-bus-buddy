@@ -90,7 +90,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const els=new Map(ids.map(x=>[x,new El(x)]));
  const get=id=>{if(!els.has(id))els.set(id,new El(id));return els.get(id)};
  const document={getElementById:get,querySelectorAll:()=>ids.map(get),querySelector:()=>new El("heading","H2"),createElement:t=>new El("",t.toUpperCase()),createTextNode:t=>({textContent:t})};
- const spoken=[],speechSynthesis={cancel(){},speak:u=>spoken.push(u.text)};
+ let cancellations=0;const spoken=[],speechSynthesis={cancel(){cancellations++},speak:u=>spoken.push(u.text)};
  // Exercise the supported reduced-motion path so visual transition timers cannot delay journey assertions.
   const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"})};
  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
@@ -110,7 +110,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next}};
+ return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next}};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -180,6 +180,14 @@ async function main(){
  assert.equal(lateFrequency.spoken.length,beforeRead+1,"Reading the route preview must speak only on rider request");
  assert.match(lateFrequency.spoken.at(-1),/NOT A CONFIRMED TRIP.*Do not travel based on this preview/i,"Spoken route preview must lead with a safety disclaimer");
  assert.match(lateFrequency.spoken.at(-1),/stop ID TL-/,"Spoken route preview must include official stop IDs");
+ assert.match(html,/id="stopVoice"[^>]*aria-label="Stop Bus Buddy spoken instructions"/,"Voice-stop control must be accessible from the persistent mobile footer");
+ const cancelBefore=lateFrequency.cancelCount();
+ const spokenBeforeStop=lateFrequency.spoken.length;
+ await lateFrequency.click("stopVoice");
+ assert.equal(lateFrequency.cancelCount(),cancelBefore+1,"STOP VOICE must cancel the active browser speech");
+ assert.equal(lateFrequency.spoken.length,spokenBeforeStop,"STOP VOICE must not speak another message");
+ assert.equal(lateFrequency.state().screen,"itinerary","STOP VOICE must not discard the selected trip");
+ assert.equal(lateFrequency.get("guideStart").disabled,true,"STOP VOICE must not authorize an unconfirmed trip");
  assert.equal(lateFrequency.get("guideStart").disabled,true,"Reading an unconfirmed preview must never authorize live guidance");
  assert.match(lateFrequency.get("planFare").textContent,/not a confirmed trip/);
  await lateFrequency.click("guideStart");assert.equal(lateFrequency.state().screen,"itinerary");
