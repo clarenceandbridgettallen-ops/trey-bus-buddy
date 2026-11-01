@@ -877,6 +877,21 @@ async function main(){
   assert.match(care.get("destinationAddress").textContent,/2379 Cypress Circle, Conway, SC/);
  }
  console.log("PASS: spaced and unspaced PruittHealth business names resolve to the same confirmable Conway address (mocked)");
+ // The Nov 1, 2026 US Eastern DST fall-back repeats 1:30 AM. Neither
+ // occurrence may turn headway-only Coast RTA data into exact boarding guidance.
+ // These are synthetic clock checks, not proof of service or phone navigation.
+ for(const [label,instant] of [
+  ["first 1:30 AM (EDT)","2026-11-01T05:30:00Z"],
+  ["second 1:30 AM (EST)","2026-11-01T06:30:00Z"]
+ ]){
+  const fold=boot(instant,null,null,"frequency-unverified");
+  await fold.settle();await selectAndrews(fold);
+  assert.equal(fold.state().screen,"itinerary",label+" must still reach the review screen");
+  assert.equal(fold.get("guideStart").disabled,true,label+" must never authorize headway-only boarding");
+  await fold.click("guideStart");
+  assert.equal(fold.state().screen,"itinerary",label+" must not start guidance when clicked");
+ }
+ console.log("PASS: both repeated 1:30 AM DST clock hours refuse frequency-unverified guided boarding (mocked)");
  console.log("Source-level mocked regressions passed. NOT a live/Android safety certification.");
 }
 // Regression: merging two frontier paths by only (stop, last route) loses a valid
