@@ -495,11 +495,14 @@ async function main(){
  const mismatchWalkLinks=mismatchedSnapshots.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALKING DIRECTIONS/.test(x.textContent));
  assert.equal(mismatchWalkLinks.length,0,"Mismatched GTFS snapshot generations must not offer pedestrian-review links tied to an unverified route pattern");
  assert.ok(mismatchedSnapshots.get("planSteps").children.some(x=>/Walking map links are disabled because Coast RTA stop or timetable snapshots/.test(x.textContent)),"Mismatched snapshot preview must explain why walking links are unavailable");
+ const savedFreshJourneyStamp=freshWalk.state().journeys.downloaded_utc;
+ freshWalk.state().journeys.downloaded_utc="2026-10-25T10:57:50Z"; // The already-rendered synthetic journey has its own timetable object.
  let mismatchClickPrevented=false;
  const mismatchClick=freshLinks[0].onclick({preventDefault(){mismatchClickPrevented=true}});
  assert.equal(mismatchClickPrevented,true,"Already-rendered walking links must reject a later timetable/stop snapshot mismatch");
  assert.equal(mismatchClick,false,"Snapshot mismatch must cancel external walking navigation");
  assert.match(freshWalk.get("planStatus").textContent,/Walking map links are disabled/);
+ freshWalk.state().journeys.downloaded_utc=savedFreshJourneyStamp;
 
  journeys.downloaded_utc=savedJourneyStamp;
  console.log("PASS: mismatched stop and schedule refresh timestamps disable guided trip without hiding preview");
