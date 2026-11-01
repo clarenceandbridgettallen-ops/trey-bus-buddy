@@ -135,7 +135,8 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  // Exercise the supported reduced-motion path so visual transition timers cannot delay journey assertions.
   const timers=new Map();let nextTimerId=0;
   const window={scrollTo(){},speechSynthesis,matchMedia:query=>({matches:query==="(prefers-reduced-motion: reduce)"}),setTimeout:fn=>{const id=++nextTimerId;timers.set(id,fn);return id},clearTimeout:id=>timers.delete(id)};
- const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
+ let delayedGpsSuccess=null;
+  const navigator={geolocation:{getCurrentPosition:(ok,fail)=>fault==="gps-denied"?fail({message:"Permission denied"}):fault==="gps-hang"?undefined:fault==="gps-late"?(delayedGpsSuccess=ok):ok({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})},clipboard:{writeText:async()=>{}}};
  class FixedDate extends Date{constructor(...a){super(...(a.length?a:[clockInstant]))}static now(){return new Date(clockInstant).getTime()}}
  // Mock places must have the correct city; a wrong-town result is now rejected intentionally.
  const feature=s=>({geometry:{coordinates:[s.lon,s.lat]},properties:{name:s.name,city:/Andrews/i.test(s.name)?"Andrews":/Conway/i.test(s.name)?"Conway":"Georgetown",state:"South Carolina"}});
@@ -156,7 +157,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys,stopLoadState,scheduleLoadState}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage")),triggerTimers:()=>{for(const fn of [...timers.values()])fn()}};
+ return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage")),triggerTimers:()=>{for(const fn of [...timers.values()])fn()},lateGps:()=>delayedGpsSuccess?.({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -673,6 +674,20 @@ async function main(){
  assert.equal(denied.get("locate").disabled,false);
  await denied.click("enterInstead");assert.equal(denied.state().screen,"manual");
  console.log("PASS: GPS permission denied offers typed location fallback");
+  const hungGps=boot("2026-10-27T11:00:00Z",null,null,"gps-hang");await hungGps.settle();
+  await hungGps.click("locate");assert.equal(hungGps.get("locate").disabled,true);
+  hungGps.triggerTimers();
+  assert.equal(hungGps.state().screen,"problem","GPS watchdog must release a stalled location request");
+  assert.equal(hungGps.get("locate").disabled,false,"GPS retry must not remain disabled");
+  assert.equal(hungGps.state().pos,null,"No location may be fabricated on timeout");
+  assert.match(hungGps.get("problemText").textContent,/GPS did not respond within 30 seconds/);
+  await hungGps.click("enterInstead");assert.equal(hungGps.state().screen,"manual");
+  const lateGps=boot("2026-10-27T11:00:00Z",null,null,"gps-late");await lateGps.settle();
+  await lateGps.click("locate");lateGps.triggerTimers();assert.equal(lateGps.state().screen,"problem");
+  lateGps.lateGps();await lateGps.settle();
+  assert.equal(lateGps.state().screen,"problem","Late GPS success must not override timeout warning");
+  assert.equal(lateGps.state().pos,null,"Late GPS result must not silently set a location");
+  console.log("PASS: GPS watchdog restores retry and ignores late callbacks (mocked Android GPS stall)");
  const offline=boot("2026-10-27T11:00:00Z",null,null,"stops-offline");await offline.settle();
  assert.equal(offline.state().official,null);
  assert.match(offline.get("dataStatus").textContent,/stop data unavailable/i);
