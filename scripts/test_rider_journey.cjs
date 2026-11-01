@@ -853,4 +853,27 @@ async function main(){
   "Distinct earlier-route histories must survive pruning to permit three-bus transfer patterns");
  console.log("PASS: synthetic three-bus fallback preserves alternate earlier-route history (not a confirmed trip)");
 }
-main().catch(e=>{console.error(e);process.exitCode=1});
+// Reverse GPS lookup must never invent a South Carolina street address for
+// coordinates in another state, or claim an address when the provider gives none.
+async function testReverseGeocodeAddressSafety(){
+ const begin=script.indexOf("async function reverse(lat,lon){");
+ const end=script.indexOf("async function gotPosition(",begin);
+ assert.ok(begin>=0&&end>begin,"GPS reverse-geocoding handler missing");
+ const isolated=script.slice(begin,end);
+ const Controller=class{constructor(){this.signal={aborted:false}}abort(){this.signal.aborted=true}};
+ const fakeWindow={setTimeout:()=>1,clearTimeout:()=>{}};
+ async function reverseMock(address){
+  const fetch=async()=>({ok:true,json:async()=>({address})});
+  const fn=new Function("fetch","AbortController","window",isolated+";return reverse;")(fetch,Controller,fakeWindow);
+  return fn(34.5,-78.5);
+ }
+ const outOfState=await reverseMock({house_number:"15",road:"Main Street",city:"Tabor City",state:"North Carolina"});
+ assert.match(outOfState,/Tabor City, North Carolina/);
+ assert.doesNotMatch(outOfState,/South Carolina/);
+ const noStreet=await reverseMock({city:"Georgetown",state:"South Carolina"});
+ assert.match(noStreet,/street address unavailable/,"Do not claim a street address from city-only results");
+ const valid=await reverseMock({house_number:"7",road:"King Street",city:"Georgetown",state:"South Carolina"});
+ assert.match(valid,/7 King Street, Georgetown, South Carolina/);
+ console.log("PASS: GPS reverse lookup preserves provider state and refuses missing street address (mocked)");
+}
+testReverseGeocodeAddressSafety().then(main).catch(e=>{console.error(e);process.exitCode=1});
