@@ -322,6 +322,28 @@ async function main(){
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/Confirm the route, direction and destination sign with the driver before boarding/.test(x.textContent)),"Untimed route patterns must warn against boarding the wrong direction");
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/Official destination sign not supplied|Stored destination sign:/.test(x.textContent)),"Untimed preview must distinguish missing headsigns from supplied ones");
  assert.ok(!lateFrequency.get("planSteps").children.some(x=>/OPEN WALK|VIEW FINAL WALKING ROUTE/.test(x.textContent)),"Do not offer unverified pedestrian navigation in topology-only mode");
+ // Topology-only mode must still let Trey inspect both pedestrian ends without
+ // pretending the route is walkable or authorizing a headway-based boarding time.
+ const topologyLinks=lateFrequency.get("planSteps").children.filter(x=>x.tagName==="A"&&/^REVIEW EXTERNAL WALKING DIRECTIONS/.test(x.textContent));
+ assert.ok(topologyLinks.some(x=>/TO FIRST POSSIBLE STOP/.test(x.textContent)),"Untimed route must offer a review-only walk to its possible first stop");
+ assert.ok(topologyLinks.some(x=>/FROM LAST POSSIBLE STOP/.test(x.textContent)),"Untimed route must offer a review-only walk from its possible final stop");
+ assert.ok(topologyLinks.every(x=>/^https:\\/\\/www\\.google\\.com\\/maps\\/dir\\/\\?api=1&origin=/.test(x.href)&&/travelmode=walking$/.test(x.href)),"Only external Google Maps walking review links are allowed");
+ assert.ok(lateFrequency.get("planSteps").children.some(x=>/Walking links below open an EXTERNAL map for review ONLY/.test(x.textContent)),"Review links must have a prominent safety disclaimer");
+ assert.equal(lateFrequency.get("guideStart").disabled,true,"Pedestrian map review cannot enable spoken trip guidance");
+ const topologySavedStamp=stops.downloaded_utc;
+ stops.downloaded_utc="2026-10-01T00:00:00Z";
+ let topologyBlocked=false;
+ const staleClick=topologyLinks[0].onclick({preventDefault(){topologyBlocked=true}});
+ assert.equal(topologyBlocked,true,"An already displayed topology walking link must recheck stop freshness on tap");
+ assert.equal(staleClick,false,"Stale walking review must cancel external navigation");
+ assert.match(lateFrequency.get("planStatus").textContent,/External walking review is disabled/);
+ const staleTopology=boot("2026-10-28T00:41:00Z",null,null,"frequency-unverified");
+ await staleTopology.settle();await selectAndrews(staleTopology);
+ assert.equal(staleTopology.get("guideStart").disabled,true);
+ assert.equal(staleTopology.get("planSteps").children.filter(x=>x.tagName==="A"&&/^REVIEW EXTERNAL WALKING DIRECTIONS/.test(x.textContent)).length,0,"Do not render map links for stale topology or coordinates");
+ assert.ok(staleTopology.get("planSteps").children.some(x=>/External walking-review links are disabled/.test(x.textContent)));
+ stops.downloaded_utc=topologySavedStamp;
+ console.log("PASS: untimed route-pattern first/final walking review is external, stale-safe, and never enables guided boarding (mocked)");
  const readPreview=lateFrequency.get("planSteps").children.find(x=>/READ POSSIBLE ROUTE ALOUD/.test(x.textContent));
  assert.ok(readPreview&&!readPreview.disabled,"Untimed route preview must offer accessible speech review when speech synthesis is supported");
  const beforeRead=lateFrequency.spoken.length;
