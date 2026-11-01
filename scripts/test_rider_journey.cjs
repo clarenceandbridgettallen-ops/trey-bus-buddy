@@ -186,6 +186,21 @@ async function main(){
  assert.equal(hungOrigin.state().screen,"manual","Origin timeout must not silently confirm a wrong starting location");
  assert.equal(hungOrigin.state().pos,null,"Origin timeout must not set a guessed starting coordinate");
  console.log("PASS: hung starting-address geocoder times out, restores retry, and preserves manual location confirmation (mocked)");
+ // Reverse-geocoding can hang after GPS succeeds. Never leave YES, THAT'S ME
+ // disabled indefinitely: fall back to coordinates, not a fabricated street.
+ const pendingReverse={promise:new Promise(()=>{})};
+ const hungReverse=boot("2026-10-27T11:00:00Z",pendingReverse);
+ await hungReverse.settle();await hungReverse.click("locate");await hungReverse.settle();
+ assert.equal(hungReverse.state().screen,"found","GPS should open confirmation even if reverse geocoding hangs");
+ assert.equal(hungReverse.get("yesLocation").disabled,true,"Address confirmation waits while reverse lookup is pending");
+ hungReverse.triggerTimers();await hungReverse.settle();
+ assert.equal(hungReverse.get("yesLocation").disabled,false,"Ten-second reverse timeout must restore location confirmation");
+ assert.match(hungReverse.get("foundAddress").textContent,/street address unavailable; confirm this location/,"Do not invent an address when reverse lookup fails");
+ assert.ok(hungReverse.state().pos,"Keep actual GPS coordinates after reverse-geocoder timeout");
+ await hungReverse.click("yesLocation");
+ assert.equal(hungReverse.state().screen,"chooseGoal","Rider can proceed after reviewing coordinates");
+ console.log("PASS: hung reverse GPS address lookup releases confirmation with coordinates and no invented street (mocked)");
+
  // Reproduce a failure arriving AFTER the rider has already opened the itinerary.
  // The old code left the loading message in place forever; the new handlers must
  // re-render a fail-closed itinerary without requiring the rider to leave/re-enter.
