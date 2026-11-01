@@ -67,7 +67,7 @@ button.journey-toggle{width:auto;min-height:44px;padding:8px 13px;font-size:15px
 
 /* v43: show transfer walk distinctly from same-platform connections */
 </style></head><body>
-<header><strong>🚌 Bus Buddy</strong><small>Preview v46</small></header>
+<header><strong>🚌 Bus Buddy</strong><small>Preview v47</small></header>
 <p id="dataStatus" role="status" aria-live="polite">Loading stored Coast RTA route data. No live arrivals.</p>
 <main>
 <section class="screen active" id="welcome"><button class="primary" id="locate">📍 I AM HERE</button><button id="typeStart">⌨️ ENTER LOCATION</button></section>
@@ -172,7 +172,30 @@ async function reverse(lat,lon){
  }finally{window.clearTimeout(timeout);controller.abort()}
 }
 async function gotPosition(lat,lon,accuracy,matchedLabel){pos={lat,lon};const requestPos=pos;$("yesLocation").disabled=true;$("foundAddress").textContent="Finding street address…";$("accuracy").textContent=accuracy?"GPS accuracy: about "+Math.round(accuracy)+" meters. Please confirm this looks right.":"Address is an approximate map match, not a verified entrance or walking route. Check the street and house number.";show("found");const requestVersion=navigationVersion;const a=matchedLabel||await reverse(lat,lon);if(screen!=="found"||pos!==requestPos||navigationVersion!==requestVersion)return;$("foundAddress").textContent=a;$("yesLocation").disabled=false;speak("I found a possible location. "+a+". Check the displayed address. Is this your location?")}
-$("locate").onclick=()=>{const requestVersion=navigationVersion;if(!navigator.geolocation){fail("This phone does not support location. Enter an address instead.");return}$("locate").disabled=true;navigator.geolocation.getCurrentPosition(p=>{ $("locate").disabled=false;if(navigationVersion!==requestVersion||screen!=="welcome")return;gotPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy)},e=>{$("locate").disabled=false;if(navigationVersion!==requestVersion||screen!=="welcome")return;fail("Could not get location: "+e.message)},{enableHighAccuracy:true,maximumAge:0,timeout:25000})};
+// Some Android browsers never invoke either GPS callback despite the browser timeout.
+// Release the location button after 30 seconds and ignore any late GPS response.
+$("locate").onclick=()=>{
+ const requestVersion=navigationVersion;
+ if(!navigator.geolocation){fail("This phone does not support location. Enter an address instead.");return}
+ $("locate").disabled=true;
+ let settled=false;
+ const finish=callback=>{
+  if(settled)return;
+  settled=true;
+  window.clearTimeout(watchdog);
+  $("locate").disabled=false;
+  if(navigationVersion!==requestVersion||screen!=="welcome")return;
+  callback();
+ };
+ const watchdog=window.setTimeout(()=>finish(()=>fail("GPS did not respond within 30 seconds. Enter a starting address instead, or try GPS again.")),30000);
+ try{
+  navigator.geolocation.getCurrentPosition(
+   p=>finish(()=>gotPosition(p.coords.latitude,p.coords.longitude,p.coords.accuracy)),
+   e=>finish(()=>fail("Could not get location: "+(e?.message||"Unknown GPS error"))),
+   {enableHighAccuracy:true,maximumAge:0,timeout:25000}
+  );
+ }catch(e){finish(()=>fail("Could not start GPS. Enter a starting address instead."))}
+};
 function updateFare(){const raw=Number($("boardings").value);const n=Math.max(1,Math.min(20,Number.isFinite(raw)?Math.ceil(raw):1));const total=$("payment").value==="tap"?Math.min(n,3.5):n;$("fareTotal").textContent="$"+total.toFixed(2)+" estimated";}$("boardings").oninput=updateFare;$("payment").onchange=updateFare;$("fareDone").onclick=back;$("openFare").onclick=()=>{const match=$("planFare").textContent.match(/^(\d+) bus(?:es)?\b/);if(match)$("boardings").value=match[1];updateFare();show("fare")};$("typeStart").onclick=()=>show("manual");$("enterInstead").onclick=()=>show("manual");$("changeLocation").onclick=()=>show("manual");$("retry").onclick=()=>reset();
 // Reject geocoder guesses that mismatch the typed address or lie outside service geography.
 function pickStartCandidate(query,candidates){
