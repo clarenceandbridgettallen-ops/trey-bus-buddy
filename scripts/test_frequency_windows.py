@@ -383,4 +383,50 @@ class FrequencyWindowTests(unittest.TestCase):
 
 
 
+    def test_official_missing_first_anchor_templates_remain_non_navigable(self):
+        # Regression fixtures from the Nov 1 official GTFS read-only audit.
+        # These are faithful missing-anchor shapes, NOT complete trip schedules.
+        # Even a downstream exact timepoint must not create a departure window.
+        examples = (
+            ('TL-1906', 14, 'TL-1033', 467, '06:25:00'),
+            ('TL-1907', 17, 'TL-954', 485, '07:30:00'),
+        )
+        for trip_id, leading_untimed, timed_id, timed_seq, timed_value in examples:
+            with self.subTest(trip_id=trip_id):
+                rows = [{
+                    'trip_id': trip_id, 'stop_id': 'TL-1163',
+                    'stop_sequence': '300', 'arrival_time': '',
+                    'departure_time': '', 'timepoint': '0', 'pickup_type': '0',
+                }]
+                rows.extend({
+                    'trip_id': trip_id, 'stop_id': f'QA-UNTIMED-{i}',
+                    'stop_sequence': str(300 + i), 'arrival_time': '',
+                    'departure_time': '', 'timepoint': '0', 'pickup_type': '0',
+                } for i in range(1, leading_untimed))
+                rows.append({
+                    'trip_id': trip_id, 'stop_id': timed_id,
+                    'stop_sequence': str(timed_seq), 'arrival_time': timed_value,
+                    'departure_time': timed_value, 'timepoint': '1',
+                    'pickup_type': '0',
+                })
+                self.assertEqual(len(rows) - 1, leading_untimed)
+                frequency = freq(trip_id=trip_id)
+                for row in rows:
+                    result = stop_window(frequency, rows, row['stop_id'],
+                                         stop_sequence=row['stop_sequence'])
+                    self.assertEqual(result['status'], 'unknown_do_not_navigate')
+                    self.assertEqual(result['reason'], 'missing_first_stop_departure_anchor')
+                report = audit_frequency_boarding_windows([frequency], rows)
+                self.assertEqual(report['window_only_boarding_pairs'], 0)
+                self.assertEqual(report['unknown_boarding_pairs'], len(rows))
+                self.assertEqual(report['blocked_template_examples'], [trip_id])
+                self.assertFalse(report['transfers_verified'])
+                self.assertEqual(
+                    transfer_feasibility_for_service_date(
+                        stop_window(frequency, rows, timed_id),
+                        stop_window(freq(), stops(), 'A'), 600,
+                        'active', 'active'),
+                    'unknown_do_not_navigate')
+
+
 if __name__ == '__main__': unittest.main()
