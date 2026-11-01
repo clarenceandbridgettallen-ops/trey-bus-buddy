@@ -9,6 +9,13 @@ assert.match(html, /id="dataStatus"[^>]*role="status"[^>]*aria-live="polite"/);
 assert.ok(html.includes("#dataStatus{position:absolute!important;"),"Data status must be visually hidden, not removed from accessibility tree");
 assert.ok(!html.includes("#dataStatus{display:none!important}"),"Do not hide safety status from screen readers");
 console.log("PASS: Coast RTA data/frequency warnings remain available to screen readers (source-level)");
+// GPS reverse lookup and typed destination errors must be announced when their
+// asynchronous status text changes, without requiring the rider to find it by touch.
+assert.match(html, /id="foundAddress"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/,
+ "GPS address readiness must be announced to assistive technology");
+assert.match(html, /id="tripStatus"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/,
+ "Destination lookup timeouts and no-match messages must be announced");
+console.log("PASS: GPS confirmation and destination search status updates are accessible (source-level)");
 // The nearest geographic stop is not necessarily a stop served by the rider's planned route.
 assert.match(html,/id="findBoarding">SHOW NEARBY STOPS \(NOT TRIP-SPECIFIC\)/);
 assert.match(html,/NOT necessarily a stop served by a bus to your destination/);
