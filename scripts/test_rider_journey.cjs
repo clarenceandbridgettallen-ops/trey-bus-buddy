@@ -475,6 +475,18 @@ async function main(){
  assert.match(walkingTransfer.get("planStatus").textContent,/Transfer walking directions are disabled/);
  stops.downloaded_utc=savedStopStamp;
  console.log("PASS: distinct-stop transfer walking link is external, review-only, and stale-safe (mocked)");
+ // An existing transfer link must also fail closed if the trip schedule is refreshed
+ // separately from the stop inventory while the rider is reviewing the itinerary.
+ const savedTransferJourneyStamp=walkingTransfer.state().journeys.downloaded_utc;
+ walkingTransfer.state().journeys.downloaded_utc="2026-10-25T10:57:50Z";
+ let transferMismatchPrevented=false;
+ const transferMismatchResult=transferLinks[0].onclick({preventDefault(){transferMismatchPrevented=true}});
+ assert.equal(transferMismatchPrevented,true,"Existing transfer walking link must block mismatched GTFS snapshot generations");
+ assert.equal(transferMismatchResult,false);
+ assert.match(walkingTransfer.get("planStatus").textContent,/Transfer walking directions are disabled/);
+ walkingTransfer.state().journeys.downloaded_utc=savedTransferJourneyStamp;
+ console.log("PASS: already-rendered transfer walking links block mismatched GTFS generations (mocked)");
+
 
  stops.downloaded_utc="2026-10-01T00:00:00Z";
  let prevented=false;
