@@ -212,11 +212,11 @@ async function lookupTypedStart(q,signal){
 $("useAddress").onclick=async()=>{
  const q=$("address").value.trim();if(!q){$("manualStatus").textContent="Enter a starting address or place name.";return}const requestVersion=navigationVersion;
  // A single deadline covers both free origin geocoders; never strand the rider on Checking.
- const startController=new AbortController(),startTimeout=window.setTimeout(()=>startController.abort(),15000);
+ const startController=new AbortController();let startTimeout;
  $("manualStatus").textContent="Checking address and house number in the Coast RTA region…";
  $("useAddress").disabled=true;
  try{
-  const found=await lookupTypedStart(q,startController.signal);
+  const found=await Promise.race([lookupTypedStart(q,startController.signal),new Promise((_,reject)=>{startTimeout=window.setTimeout(()=>{startController.abort();reject(Error("Starting-address lookup timed out after 15 seconds. Try again or use GPS."))},15000)})]);
   if(startController.signal.aborted)throw Error("Starting-address lookup timed out after 15 seconds. Try again or use GPS.");
   if(navigationVersion!==requestVersion||screen!=="manual")return;
   if(!found)throw Error("No matching start address in the Coast RTA region. Check the house number, street and city; do not use a different suggested address.");
