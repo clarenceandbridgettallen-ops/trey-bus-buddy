@@ -174,6 +174,20 @@ async function main(){
  assert.match(hung.get("tripStatus").textContent,/Place lookup timed out after 15 seconds/,"Timeout must be explained to the rider");
  assert.equal(hung.state().screen,"destination","Timeout must not silently choose a place");
  console.log("PASS: hung place geocoder times out, explains failure, and restores search button (mocked)");
+ // A successful HTTP response may still stall forever while decoding JSON.
+ // AbortController alone cannot release a promise that ignores abort.
+ const stuckJsonDestination=boot("2026-10-27T11:00:00Z",null,null,"geocoder-json-hang");
+ await stuckJsonDestination.settle();await stuckJsonDestination.click("locate");await stuckJsonDestination.settle();
+ await stuckJsonDestination.click("yesLocation");await stuckJsonDestination.click("goDestination");
+ stuckJsonDestination.get("destinationInput").value="123 Unlisted Road Andrews";
+ const pendingJsonDestination=stuckJsonDestination.click("findTrip");await stuckJsonDestination.settle();
+ assert.equal(stuckJsonDestination.get("findTrip").disabled,true,"Destination lookup should be pending before JSON deadline");
+ stuckJsonDestination.triggerTimers();await pendingJsonDestination;
+ assert.equal(stuckJsonDestination.get("findTrip").disabled,false,"Hung destination JSON decoding must restore search control");
+ assert.match(stuckJsonDestination.get("tripStatus").textContent,/Place lookup timed out after 15 seconds/,"Hung destination JSON decoding must explain timeout");
+ assert.equal(stuckJsonDestination.state().destination,null,"Hung JSON decoding must not invent destination coordinates");
+ assert.equal(stuckJsonDestination.state().screen,"destination","Hung JSON decoding must not advance to a guessed destination");
+ console.log("PASS: destination JSON-body hang is bounded even when provider ignores abort (mocked)");
  // Typed START addresses need the same bounded recovery as destination lookup.
  // A hanging free provider must not leave the rider stuck on "Checking" forever.
  const hungOrigin=boot("2026-10-27T11:00:00Z",null,null,"geocoder-hang");
