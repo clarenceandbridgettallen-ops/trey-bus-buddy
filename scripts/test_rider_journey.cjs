@@ -327,7 +327,7 @@ async function main(){
  const topologyLinks=lateFrequency.get("planSteps").children.filter(x=>x.tagName==="A"&&/^REVIEW EXTERNAL WALKING DIRECTIONS/.test(x.textContent));
  assert.ok(topologyLinks.some(x=>/TO FIRST POSSIBLE STOP/.test(x.textContent)),"Untimed route must offer a review-only walk to its possible first stop");
  assert.ok(topologyLinks.some(x=>/FROM LAST POSSIBLE STOP/.test(x.textContent)),"Untimed route must offer a review-only walk from its possible final stop");
- assert.ok(topologyLinks.every(x=>/^https:\\/\\/www\\.google\\.com\\/maps\\/dir\\/\\?api=1&origin=/.test(x.href)&&/travelmode=walking$/.test(x.href)),"Only external Google Maps walking review links are allowed");
+ assert.ok(topologyLinks.every(x=>x.href.startsWith("https://www.google.com/maps/dir/?api=1&origin=")&&x.href.endsWith("&travelmode=walking")),"Only external Google Maps walking review links are allowed");
  assert.ok(lateFrequency.get("planSteps").children.some(x=>/Walking links below open an EXTERNAL map for review ONLY/.test(x.textContent)),"Review links must have a prominent safety disclaimer");
  assert.equal(lateFrequency.get("guideStart").disabled,true,"Pedestrian map review cannot enable spoken trip guidance");
  const topologySavedStamp=stops.downloaded_utc;
