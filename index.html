@@ -160,8 +160,10 @@ async function reverse(lat,lon){
    (async()=>{
     const r=await fetch("https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat="+lat+"&lon="+lon,{signal:controller.signal});
     if(!r.ok)throw Error("Reverse address unavailable");
-    const d=await r.json(),a=d.address||{};
-    return [a.house_number,a.road].filter(Boolean).join(" ")+(a.city||a.town||a.village||a.suburb?", "+(a.city||a.town||a.village||a.suburb):"")+", South Carolina";
+    const d=await r.json(),a=d?.address||{};
+    const street=[a.house_number,a.road].filter(Boolean).join(" ").trim();
+    if(!street)throw Error("No street-level address returned");
+    return [street,a.city||a.town||a.village||a.suburb||a.county,a.state,a.postcode].filter(Boolean).join(", ");
    })(),
    new Promise((_,reject)=>{timeout=window.setTimeout(()=>{controller.abort();reject(Error("Reverse address lookup timed out"))},10000)})
   ]);
