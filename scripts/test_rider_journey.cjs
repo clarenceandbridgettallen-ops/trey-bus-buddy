@@ -37,7 +37,7 @@ assert.match(script,/stopLoadState="failed";source="";refreshDataStatus/);
 assert.match(script,/stopLoadState="ready";source="Official Coast RTA GTFS"/);
 assert.match(script,/const unavailable=stopLoadState==="failed"\|\|scheduleLoadState==="failed"/);
 assert.match(script,/async function fetchRouteData\(url\)/,"Local GTFS fetch must have a timeout wrapper");
-assert.match(script,/controller\.abort\(\),15000/,"Stalled GTFS requests must abort within 15 seconds");
+assert.match(script,/controller\.abort\(\);reject\(Error\("Route data download timed out after 15 seconds"\)\)/,"Stalled GTFS requests must reject after 15 seconds even if JSON ignores abort");
 assert.match(script,/stopLoadState="failed";source="";refreshDataStatus\(\);if\(destination&&screen==="itinerary"\)renderTrip\(\)/,"A stop-feed failure must update an already-visible itinerary");
 assert.match(script,/scheduleLoadState="failed";[\s\S]*?if\(destination&&screen==="itinerary"\)renderTrip\(\)/,"A timetable failure must update an already-visible itinerary");
 
@@ -135,8 +135,8 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  let rejectStopDownload=null,rejectJourneyDownload=null;
  const fetch=async (url,opts={})=>{
   const u=String(url);
-  if(u.includes("coast-rta-stops.json")){if(fault==="stops-delayed-failure")return new Promise((_resolve,reject)=>{rejectStopDownload=reject});return {ok:fault!=="stops-offline",json:async()=>stops}}
-  if(u.includes("coast-rta-journeys.json")){if(fault==="journeys-delayed-failure")return new Promise((_resolve,reject)=>{rejectJourneyDownload=reject});return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}}}
+  if(u.includes("coast-rta-stops.json")){if(fault==="stops-delayed-failure")return new Promise((_resolve,reject)=>{rejectStopDownload=reject});if(fault==="stops-json-hang")return {ok:true,json:()=>new Promise(()=>{})};return {ok:fault!=="stops-offline",json:async()=>stops}}
+  if(u.includes("coast-rta-journeys.json")){if(fault==="journeys-delayed-failure")return new Promise((_resolve,reject)=>{rejectJourneyDownload=reject});if(fault==="journeys-json-hang")return {ok:true,json:()=>new Promise(()=>{})};return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}}}
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")&&fault==="geocoder-hang")return new Promise((_resolve,reject)=>{opts.signal?.addEventListener("abort",()=>reject(Error("Simulated geocoder timeout")))});
    if(u.includes("photon.komoot.io")&&fault==="geocoder-json-hang")return {ok:true,json:()=>new Promise(()=>{})};
@@ -146,7 +146,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  };
  class MockAbortController{constructor(){this.listeners=[];this.signal={aborted:false,addEventListener:(name,fn)=>{if(name==="abort")this.listeners.push(fn)}}}abort(){if(this.signal.aborted)return;this.signal.aborted=true;for(const fn of this.listeners)fn()}}
  const ctx={document,window,navigator,fetch,AbortController:MockAbortController,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys,stopLoadState,scheduleLoadState}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
  return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage")),triggerTimers:()=>{for(const fn of [...timers.values()])fn()}};
@@ -243,6 +243,19 @@ async function main(){
   assert.ok(a.get("planSteps").children.some(x=>x.href==="tel:8434880865"),"A rider must get a direct Coast RTA help link");
  }
  console.log("PASS: delayed stop/timetable download failures refresh the visible itinerary and fail closed");
+
+ // Local GTFS files can respond HTTP 200 but never finish decoding JSON.
+ // Aborting fetch alone must not strand stop or timetable loading forever.
+ for(const [fault,key] of [["stops-json-hang","stopLoadState"],["journeys-json-hang","scheduleLoadState"]]){
+  const stuck=boot("2026-10-27T11:00:00Z",null,null,fault);
+  await stuck.settle();
+  assert.equal(stuck.state()[key],"loading","A hanging JSON body must initially remain loading: "+fault);
+  stuck.triggerTimers();await stuck.settle();
+  assert.equal(stuck.state()[key],"failed","A hanging JSON body must time out and fail closed: "+fault);
+  if(fault==="stops-json-hang")assert.equal(stuck.state().official,null,"No guessed stop inventory may be loaded");
+  if(fault==="journeys-json-hang")assert.equal(stuck.state().journeys,null,"No guessed timetable may be loaded");
+ }
+ console.log("PASS: hanging local stop/timetable JSON bodies time out and fail closed (mocked)");
 
  // An exact street match in a different Coast RTA town must not be offered
  // when the rider explicitly typed Andrews, Surfside Beach or another service-area community.
