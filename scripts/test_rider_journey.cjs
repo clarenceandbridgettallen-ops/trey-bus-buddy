@@ -309,9 +309,9 @@ async function main(){
  await frequencyBlocked.click("guideStart");assert.equal(frequencyBlocked.state().screen,"itinerary");
  console.log("PASS: unverified Coast RTA frequency templates cannot authorize exact-time spoken boarding");
 
- // When the non-exact frequency feed cannot supply a timed journey,
+ // Keep this fixture after the committed 2026-10-28 11:03 UTC stop/schedule snapshot.\n // The prior 2026-10-28 00:41 UTC instant predates the snapshot and correctly\n // suppressed walking-review links as future-dated, causing a false test failure.\n // When the non-exact frequency feed cannot supply a timed journey,
  // retain only a topology-based route-pattern idea, never a departure claim.
- const lateFrequency=boot("2026-10-28T00:41:00Z",null,null,"frequency-unverified");
+ const lateFrequency=boot("2026-10-29T00:41:00Z",null,null,"frequency-unverified");
  await lateFrequency.settle();await selectAndrews(lateFrequency);
  assert.match(lateFrequency.get("planStatus").textContent,/POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP/);
  assert.match(lateFrequency.get("planStatus").textContent,/frequency-based departures, actual transfer timing/);
@@ -337,7 +337,7 @@ async function main(){
  assert.equal(topologyBlocked,true,"An already displayed topology walking link must recheck stop freshness on tap");
  assert.equal(staleClick,false,"Stale walking review must cancel external navigation");
  assert.match(lateFrequency.get("planStatus").textContent,/External walking review is disabled/);
- const staleTopology=boot("2026-10-28T00:41:00Z",null,null,"frequency-unverified");
+ const staleTopology=boot("2026-10-29T00:41:00Z",null,null,"frequency-unverified");
  await staleTopology.settle();await selectAndrews(staleTopology);
  assert.equal(staleTopology.get("guideStart").disabled,true);
  assert.equal(staleTopology.get("planSteps").children.filter(x=>x.tagName==="A"&&/^REVIEW EXTERNAL WALKING DIRECTIONS/.test(x.textContent)).length,0,"Do not render map links for stale topology or coordinates");
