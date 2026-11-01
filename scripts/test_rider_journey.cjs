@@ -432,6 +432,28 @@ async function main(){
  assert.equal(freshLinks.length,2,"Fresh itinerary should retain both walking-map links for pedestrian review");
  assert.ok(freshLinks.every(x=>/^REVIEW EXTERNAL WALKING DIRECTIONS/.test(x.textContent)),"Both itinerary walking links must be explicitly external and review-only");
  assert.ok(freshWalk.get("planSteps").children.some(x=>/Bus Buddy has NOT verified accessible sidewalks, safe crossings, the boarding side/.test(x.textContent)),"Visible itinerary must warn about unverified pedestrian access and boarding side");
+ // A different mapped boarding stop needs its own pedestrian-review link, not a
+ // guessed crossing or a claim that the transfer can safely be made.
+ const walkingFixture=syntheticTransfer();
+ walkingFixture.trips[1].stops[0].stop="TL-365"; // 4th Ave (CNB), near Conway Terminal TL-20
+ const walkingTransfer=boot("2026-10-27T11:00:00Z",null,walkingFixture);
+ await walkingTransfer.settle();await selectAndrews(walkingTransfer);
+ const transferLinks=walkingTransfer.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALKING DIRECTIONS FOR TRANSFER/.test(x.textContent));
+ assert.equal(transferLinks.length,1,"Distinct-stop transfer needs one external pedestrian review link");
+ assert.match(transferLinks[0].href,/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/);
+ assert.match(transferLinks[0].href,/&destination=.*&travelmode=walking$/);
+ assert.ok(walkingTransfer.get("planSteps").children.some(x=>/Transfer 1:.*stop ID TL-20.*stop ID TL-365.*NOT verified safe crossings/.test(x.textContent)),
+  "Transfer review must identify both mapped stop IDs and warn about crossing/accessibility uncertainty");
+ assert.equal(walkingTransfer.get("guideStart").disabled,true,"Unverified inter-stop walking must never authorize spoken boarding");
+ stops.downloaded_utc="2026-10-01T00:00:00Z";
+ let transferPrevented=false;
+ const transferClickResult=transferLinks[0].onclick({preventDefault(){transferPrevented=true}});
+ assert.equal(transferPrevented,true,"Transfer map link must reject stale stop coordinates at click time");
+ assert.equal(transferClickResult,false);
+ assert.match(walkingTransfer.get("planStatus").textContent,/Transfer walking directions are disabled/);
+ stops.downloaded_utc=savedStopStamp;
+ console.log("PASS: distinct-stop transfer walking link is external, review-only, and stale-safe (mocked)");
+
  stops.downloaded_utc="2026-10-01T00:00:00Z";
  let prevented=false;
  const clickResult=freshLinks[0].onclick({preventDefault(){prevented=true}});
