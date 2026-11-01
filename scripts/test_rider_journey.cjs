@@ -195,7 +195,7 @@ async function main(){
  assert.equal(hungReverse.get("yesLocation").disabled,true,"Address confirmation waits while reverse lookup is pending");
  hungReverse.triggerTimers();await hungReverse.settle();
  assert.equal(hungReverse.get("yesLocation").disabled,false,"Ten-second reverse timeout must restore location confirmation");
- assert.match(hungReverse.get("foundAddress").textContent,/street address unavailable; confirm this location/,"Do not invent an address when reverse lookup fails");
+ assert.match(hungReverse.get("foundAddress").textContent,/street address unavailable; if unsure, choose CHANGE LOCATION/,"Do not invent an address when reverse lookup fails");
  assert.ok(hungReverse.state().pos,"Keep actual GPS coordinates after reverse-geocoder timeout");
  await hungReverse.click("yesLocation");
  assert.equal(hungReverse.state().screen,"chooseGoal","Rider can proceed after reviewing coordinates");
