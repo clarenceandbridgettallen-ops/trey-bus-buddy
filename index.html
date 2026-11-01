@@ -132,15 +132,21 @@ function refreshDataStatus(){
  const snapshot=journeys?.downloaded_utc||official.downloaded_utc;const staleWarning=(stopInventoryTooOld()||transitDataTooOld())?" WARNING: stored stops or schedules are older than 7 days, future-dated, undated, or refreshed more than 24 hours apart. Confirm current service with Coast RTA.":"";
   reportDataStatus("Stored Coast RTA GTFS: "+official.stops.length+" mapped stops, "+tripStatus+". Snapshot "+snapshotDate(snapshot)+". Not live arrivals; walking routes unverified."+staleWarning+(journeys?.trips&&!scheduleTimingVerified()?" WARNING: Official Coast RTA GTFS contains frequency-based trips absent from this timetable. Stored departure times are unverified; do not use them for boarding.":""));
 }
-// Limit hung local GTFS downloads: a failed connection must not strand a rider on a loading screen.
+// Limit the entire local GTFS download, including JSON decoding that ignores abort.
+// Never leave a rider waiting for stop or timetable data indefinitely.
 async function fetchRouteData(url){
  const controller=new AbortController();
- const timeout=window.setTimeout(()=>controller.abort(),15000);
+ let timeout;
  try{
-  const response=await fetch(url,{cache:"no-store",signal:controller.signal});
-  if(!response.ok)throw Error("Unavailable");
-  return await response.json();
- }finally{window.clearTimeout(timeout)}
+  return await Promise.race([
+   (async()=>{
+    const response=await fetch(url,{cache:"no-store",signal:controller.signal});
+    if(!response.ok)throw Error("Unavailable");
+    return await response.json();
+   })(),
+   new Promise((_,reject)=>{timeout=window.setTimeout(()=>{controller.abort();reject(Error("Route data download timed out after 15 seconds"))},15000)})
+  ]);
+ }finally{window.clearTimeout(timeout);controller.abort()}
 }
 async function loadStops(){try{const d=await fetchRouteData("./data/coast-rta-stops.json");if(!Array.isArray(d.stops)||d.stops.length<50)throw Error("Incomplete");official=d;stopLoadState="ready";source="Official Coast RTA GTFS";refreshDataStatus();if(destination&&screen==="itinerary"&&journeys)renderTrip()}catch(e){official=null;stopLoadState="failed";source="";refreshDataStatus();if(destination&&screen==="itinerary")renderTrip();}}loadStops();fetchRouteData("./data/coast-rta-journeys.json").then(d=>{if(!Array.isArray(d?.trips))throw Error("Incomplete journey data");journeys=d;scheduleLoadState="ready";refreshDataStatus();if(destination&&screen==="itinerary")renderTrip()}).catch(()=>{scheduleLoadState="failed";if(official?.stops)refreshDataStatus();else reportDataStatus("Coast RTA stop and trip schedules unavailable. Refresh to retry.");if(destination&&screen==="itinerary")renderTrip();});
 function fail(t){$("problemText").textContent=t;show("problem");speak("Something went wrong. "+t)}
