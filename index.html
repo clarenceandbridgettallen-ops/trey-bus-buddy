@@ -160,7 +160,7 @@ async function reverse(lat,lon){
    new Promise((_,reject)=>{timeout=window.setTimeout(()=>{controller.abort();reject(Error("Reverse address lookup timed out"))},10000)})
   ]);
  }catch(e){
-  return "Near "+lat.toFixed(5)+", "+lon.toFixed(5)+" (street address unavailable; confirm this location on the map before continuing)";
+  return "Near "+lat.toFixed(5)+", "+lon.toFixed(5)+" (street address unavailable; if unsure, choose CHANGE LOCATION and enter an address)";
  }finally{window.clearTimeout(timeout);controller.abort()}
 }
 async function gotPosition(lat,lon,accuracy,matchedLabel){pos={lat,lon};const requestPos=pos;$("yesLocation").disabled=true;$("foundAddress").textContent="Finding street address…";$("accuracy").textContent=accuracy?"GPS accuracy: about "+Math.round(accuracy)+" meters. Please confirm this looks right.":"Address is an approximate map match, not a verified entrance or walking route. Check the street and house number.";show("found");const requestVersion=navigationVersion;const a=matchedLabel||await reverse(lat,lon);if(screen!=="found"||pos!==requestPos||navigationVersion!==requestVersion)return;$("foundAddress").textContent=a;$("yesLocation").disabled=false;speak("I found a possible location. "+a+". Check the displayed address. Is this your location?")}
