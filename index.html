@@ -305,15 +305,17 @@ $("findTrip").onclick=async()=>{
 const typed=$("destinationInput").value.trim();if(!typed||!pos)return;
 const q=cleanPlaceQuery(typed);if(!q){$("tripStatus").textContent="Please enter a business name or address.";return}const requestVersion=navigationVersion;
 // One shared deadline prevents sequential free-geocoder requests from trapping a rider on Searching.
-const searchController=new AbortController();const searchTimeout=window.setTimeout(()=>searchController.abort(),15000);
+const searchController=new AbortController();let searchTimeout;
 $("tripStatus").textContent="Searching the Coast RTA region, including Georgetown and Conway…";$("findTrip").disabled=true;
 try{
+// Race the entire place lookup, including response.json(), against one deadline.
+await Promise.race([(async()=>{
 const matches=[];const add=(lat,lon,name,address)=>{if(!Number.isFinite(lat)||!Number.isFinite(lon))return;const p={geometry:{coordinates:[lon,lat]}};if(!isNearby(p))return;matches.push({lat,lon,name:name||address||"",address:address||name||"",meters:distance(pos,{lat,lon})})};
 const terms=[q,q+" South Carolina",q+" Conway SC",q+" Georgetown SC",q+" Myrtle Beach SC"];for(const term of terms){if(searchController.signal.aborted)break;try{const r=await fetch("https://photon.komoot.io/api/?limit=40&lat="+encodeURIComponent(pos.lat)+"&lon="+encodeURIComponent(pos.lon)+"&q="+encodeURIComponent(term),{signal:searchController.signal});if(!r.ok)continue;const d=await r.json();for(const p of d.features||[]){const a=p.properties||{};add(p.geometry.coordinates[1],p.geometry.coordinates[0],a.name||"",placeLabel(a))}}catch(e){}}
 // A geographically nearby Photon suggestion may still be an unrelated place. Try the second free geocoder when none actually matches the typed destination.
 if(!matches.some(x=>placeMatchScore(q,x)>=75&&placeMatchesRequestedCity(typed,x))){for(const term of [q+", South Carolina",q+", Conway, South Carolina",q+", Georgetown, South Carolina"]){if(searchController.signal.aborted)break;try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q="+encodeURIComponent(term),{signal:searchController.signal});if(!r.ok)continue;const data=await r.json();for(const p of data)add(Number(p.lat),Number(p.lon),p.name||"",p.display_name);if(matches.some(x=>placeMatchScore(q,x)>=75&&placeMatchesRequestedCity(typed,x)))break}catch(e){}}}
 const known=[{name:"Belle Isle Bistro",address:"1228 Belle Isle Road, Georgetown, SC 29440",aliases:["bell isle bistro","belle isle bistro"]},{name:"PruittHealth - Conway at Conway Medical Center",address:"2379 Cypress Circle, Conway, SC 29526",aliases:["pruitt health","pruitthealth","pruitt health conway","pruitthealth conway"]}];const simple=t=>String(t||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();for(const entry of known){if(!searchController.signal.aborted&&entry.aliases.some(n=>simple(q).includes(n))){try{const url="https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&q="+encodeURIComponent(entry.address);const r=await fetch(url,{signal:searchController.signal});if(r.ok){for(const p of await r.json()){const lat=Number(p.lat),lon=Number(p.lon);if(Number.isFinite(lat)&&Number.isFinite(lon))matches.push({lat,lon,name:entry.name,address:entry.address,meters:distance(pos,{lat,lon})})}}}catch(e){}}}
-if(searchController.signal.aborted&&!matches.some(x=>placeMatchScore(q,x)>=75&&placeMatchesRequestedCity(typed,x)))throw Error("Place lookup timed out after 15 seconds. Try again or enter a street address.");
+if(searchController.signal.aborted)throw Error("Place lookup timed out after 15 seconds. Try again or enter a street address.");
 if(navigationVersion!==requestVersion||screen!=="destination")return;
 const score=x=>placeMatchScore(q,x);
 const eligible=matches.filter(x=>score(x)>=75&&placeMatchesRequestedCity(typed,x)).sort((x,y)=>score(y)-score(x)||x.meters-y.meters);const unique=[];for(const x of eligible){if(!unique.some(y=>distance(x,y)<25&&normalizePlace(x.address)===normalizePlace(y.address)&&normalizePlace(x.name)===normalizePlace(y.name)))unique.push(x)}matches.length=0;matches.push(...unique);
@@ -324,6 +326,7 @@ $("destinationAddress").textContent=destination.address+" · About "+(destinatio
 $("tripStatus").textContent="";
 show("confirmDestination");
 speak("Is this the right place? "+destination.name+" "+destination.address);
+})(),new Promise((_,reject)=>{searchTimeout=window.setTimeout(()=>{searchController.abort();reject(Error("Place lookup timed out after 15 seconds. Try again or enter a street address."))},15000)})]);
 }catch(e){if(navigationVersion===requestVersion&&screen==="destination")$("tripStatus").textContent=e.message}
 finally{window.clearTimeout(searchTimeout);$("findTrip").disabled=false}
 };
