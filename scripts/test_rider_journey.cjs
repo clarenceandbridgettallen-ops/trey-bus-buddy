@@ -37,6 +37,20 @@ stops.downloaded_utc="2026-10-27T10:57:50Z";
 journeys.downloaded_utc="2026-10-27T10:57:50Z";
 console.log("PASS: committed stop/trip timestamp coherence and deterministic QA fixture dates");
 const script=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+// GTFS stop times may legally extend beyond 24:00 for service after midnight.
+// Never tell a rider 25:30 is 1:30 PM: it is 1:30 AM the next day.
+{
+ const start=script.indexOf("function clock(t){"),end=script.indexOf("function calculate(){",start);
+ assert.ok(start>=0&&end>start,"GTFS time formatting helper missing");
+ const timeFormatter=new Function(script.slice(start,end)+";return clock;")();
+ for(const [mins,expected] of [
+  [15,"12:15 AM"],[12*60+5,"12:05 PM"],[23*60+59,"11:59 PM"],
+  [24*60+10,"12:10 AM (next day)"],[25*60+30,"1:30 AM (next day)"],
+  [36*60,"12:00 PM (next day)"],[48*60+5,"12:05 AM (+2 days)"]
+ ])assert.equal(timeFormatter(mins),expected,"GTFS time "+mins+" minutes must retain correct day and AM/PM");
+ console.log("PASS: GTFS 24:00+ scheduled times show correct next-day AM/PM (mocked)");
+}
+
 
 // Stop and timetable loading failures must be distinguishable from a pending download.
 assert.match(script,/let scheduleLoadState="loading",stopLoadState="loading"/);
