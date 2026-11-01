@@ -490,6 +490,31 @@ function showPossiblePattern(pattern){
   $("planSteps").append(item);
   spokenPreview.push(item.textContent);
  });
+ // The frequency-only topology preview can offer map REVIEW links, not navigation.
+ // Every link is explicitly unverified and must fail closed on stale coordinates or schedules.
+ const walkingReviewBlocked=()=>stopInventoryTooOld()||transitDataTooOld();
+ if(walkingReviewBlocked()){
+  const warning=document.createElement("p");warning.className="hint";
+  warning.textContent="External walking-review links are disabled because stored Coast RTA stops or route data are stale, future-dated, undated, or out of sync. Confirm current stops and walking access with Coast RTA.";
+  $("planSteps").append(warning);
+ }else{
+  const warning=document.createElement("p");warning.className="hint";
+  warning.textContent="Walking links below open an EXTERNAL map for review ONLY. Bus Buddy has NOT verified sidewalks, accessible crossings, boarding sides, bus departures, or transfer feasibility. Do not begin travel based on this possible route pattern.";
+  $("planSteps").append(warning);
+  const reviewWalk=(from,to,label)=>{
+   const link=document.createElement("a");link.className="big";link.target="_blank";link.rel="noopener noreferrer";
+   link.textContent="REVIEW EXTERNAL WALKING DIRECTIONS "+label+" (NOT VERIFIED)";
+   link.href="https://www.google.com/maps/dir/?api=1&origin="+encodeURIComponent(from.lat+","+from.lon)+"&destination="+encodeURIComponent(to.lat+","+to.lon)+"&travelmode=walking";
+   link.onclick=e=>{if(walkingReviewBlocked()){e.preventDefault();$("planStatus").textContent="External walking review is disabled because stored stop or route data are no longer current. Confirm the stop and route with Coast RTA at 843-488-0865.";return false}};
+   $("planSteps").append(link);
+  };
+  reviewWalk(pos,pattern.legs[0].from,"TO FIRST POSSIBLE STOP");
+  pattern.legs.slice(1).forEach((leg,i)=>{
+   const previous=pattern.legs[i].to;
+   if(previous.id!==leg.from.id)reviewWalk(previous,leg.from,"FOR POSSIBLE TRANSFER "+(i+1));
+  });
+  reviewWalk(pattern.legs.at(-1).to,destination,"FROM LAST POSSIBLE STOP");
+ }
  const readPreview=document.createElement("button");readPreview.className="big";readPreview.type="button";readPreview.textContent="READ POSSIBLE ROUTE ALOUD (NOT LIVE NAVIGATION)";readPreview.disabled=!("speechSynthesis" in window);readPreview.setAttribute("aria-describedby","planStatus");readPreview.onclick=()=>{if(!readPreview.disabled)speak(spokenPreview.join(" "))};$("planSteps").append(readPreview);
  const call=document.createElement("a");call.className="big";call.href="tel:8434880865";call.textContent="CALL COAST RTA TO VERIFY THIS ROUTE";$("planSteps").append(call);
  const n=pattern.legs.length;
