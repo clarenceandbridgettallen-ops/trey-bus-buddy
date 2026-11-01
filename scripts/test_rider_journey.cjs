@@ -139,6 +139,7 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
   if(u.includes("coast-rta-journeys.json")){if(fault==="journeys-delayed-failure")return new Promise((_resolve,reject)=>{rejectJourneyDownload=reject});return {ok:fault!=="journeys-offline",json:async()=>fault==="frequency-unverified"?structuredClone(committedJourneys):{...(fixtureJourneys||journeys),frequency_coverage:{status:"no_frequency_rows"}}}}
   if(u.includes("/reverse?"))return {ok:true,json:deferred?()=>deferred.promise:async()=>({address:{road:"Lynch Street",city:"Georgetown"}})};
   if(u.includes("photon.komoot.io")&&fault==="geocoder-hang")return new Promise((_resolve,reject)=>{opts.signal?.addEventListener("abort",()=>reject(Error("Simulated geocoder timeout")))});
+   if(u.includes("photon.komoot.io")&&fault==="geocoder-json-hang")return {ok:true,json:()=>new Promise(()=>{})};
   if(u.includes("photon.komoot.io")){const q=decodeURIComponent(u.split("&q=")[1]||"").toLowerCase();if(q.includes("2379 cypress circle conway"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[origin.lon,origin.lat]},properties:{name:"2379 Cypress Circle",housenumber:"2379",street:"Cypress Circle",city:"Georgetown",state:"South Carolina"}}]})};if(q.includes("walmart"))return {ok:true,json:async()=>({features:[{geometry:{coordinates:[target.lon,target.lat]},properties:{name:"Walmart",housenumber:"123",street:"Test Road",city:"Andrews",state:"South Carolina"}},{geometry:{coordinates:[interchange.lon,interchange.lat]},properties:{name:"Walmart",housenumber:"456",street:"Sample Street",city:"Conway",state:"South Carolina"}}]})};return {ok:true,json:async()=>({features:q.includes("andrews")?[feature(target)]:q.includes("georgetown")?[feature(origin)]:[]})}}
   if(u.includes("nominatim.openstreetmap.org"))return {ok:true,json:async()=>u.includes("1228%20Belle%20Isle%20Road")?[{lat:String(origin.lat+0.01),lon:String(origin.lon+0.01),name:"Belle Isle Bistro",display_name:"1228 Belle Isle Road, Georgetown, SC"}]:u.includes("2379%20Cypress%20Circle")?[{lat:String(interchange.lat+0.01),lon:String(interchange.lon+0.01),name:"PruittHealth - Conway at Conway Medical Center",display_name:"2379 Cypress Circle, Conway, SC 29526"}]:[]};
   throw Error("Unexpected mock fetch: "+u);
@@ -186,6 +187,19 @@ async function main(){
  assert.equal(hungOrigin.state().screen,"manual","Origin timeout must not silently confirm a wrong starting location");
  assert.equal(hungOrigin.state().pos,null,"Origin timeout must not set a guessed starting coordinate");
  console.log("PASS: hung starting-address geocoder times out, restores retry, and preserves manual location confirmation (mocked)");
+ // Abort alone does not guarantee recovery if a provider's response body never settles.
+ // Exercise a geocoder that returns HTTP 200 but hangs forever during response.json().
+ const stuckJsonOrigin=boot("2026-10-27T11:00:00Z",null,null,"geocoder-json-hang");
+ await stuckJsonOrigin.settle();await stuckJsonOrigin.click("typeStart");
+ stuckJsonOrigin.get("address").value="123 Unlisted Road Georgetown";
+ const pendingJsonOrigin=stuckJsonOrigin.click("useAddress");await stuckJsonOrigin.settle();
+ assert.equal(stuckJsonOrigin.get("useAddress").disabled,true,"Origin lookup should remain pending before JSON deadline");
+ stuckJsonOrigin.triggerTimers();await pendingJsonOrigin;
+ assert.equal(stuckJsonOrigin.get("useAddress").disabled,false,"Hung JSON decoding must restore the origin search control");
+ assert.match(stuckJsonOrigin.get("manualStatus").textContent,/Starting-address lookup timed out after 15 seconds/,"Hung JSON decoding must show timeout warning");
+ assert.equal(stuckJsonOrigin.state().pos,null,"Hung JSON decoding must not invent origin coordinates");
+ assert.equal(stuckJsonOrigin.state().screen,"manual","Hung JSON decoding must not advance to location confirmation");
+ console.log("PASS: origin JSON-body hang is bounded by deadline even when AbortController cannot settle the provider (mocked)");
  // Reverse-geocoding can hang after GPS succeeds. Never leave YES, THAT'S ME
  // disabled indefinitely: fall back to coordinates, not a fabricated street.
  const pendingReverse={promise:new Promise(()=>{})};
