@@ -16,6 +16,11 @@ assert.match(html, /id="foundAddress"[^>]*role="status"[^>]*aria-live="polite"[^
 assert.match(html, /id="tripStatus"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/,
  "Destination lookup timeouts and no-match messages must be announced");
 console.log("PASS: GPS confirmation and destination search status updates are accessible (source-level)");
+assert.match(html, /Bus Buddy previews possible route patterns from stored Coast RTA data, NOT confirmed departures\./,
+ "Destination entry must not advertise frequency-only route patterns as scheduled trips");
+assert.doesNotMatch(html, /Bus Buddy previews scheduled Coast RTA trips\./,
+ "Unverified frequency trips must never be described as scheduled on the destination screen");
+console.log("PASS: destination search labels stored route patterns without promising scheduled departures");
 // The nearest geographic stop is not necessarily a stop served by the rider's planned route.
 assert.match(html,/id="findBoarding">SHOW NEARBY STOPS \(NOT TRIP-SPECIFIC\)/);
 assert.match(html,/NOT necessarily a stop served by a bus to your destination/);
