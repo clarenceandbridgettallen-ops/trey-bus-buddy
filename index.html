@@ -485,8 +485,10 @@ function showPossiblePattern(pattern){
  $("planSteps").append(note);
  const spokenPreview=["POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP. No departures, transfer times, safe walking routes or boarding sides are verified. Do not travel based on this preview. Confirm with Coast RTA at 843-488-0865.",note.textContent];
  pattern.legs.forEach((leg,i)=>{
+  const previousTransferStop=i?pattern.legs[i-1].to:null;
+  const coLocatedDistinctTransfer=previousTransferStop&&previousTransferStop.id!==leg.from.id&&distance(previousTransferStop,leg.from)<1;
   const item=document.createElement("p");item.className="journey-detail";
-  item.textContent="POSSIBLE BUS "+(i+1)+": "+leg.trip.route+" from "+leg.from.name+" (stop ID "+leg.from.id+") to "+leg.to.name+" (stop ID "+leg.to.id+"). "+(String(leg.trip.headsign||"").trim()?"Stored destination sign: "+String(leg.trip.headsign).trim()+". ":"Official destination sign not supplied in stored trip. ")+"Confirm the route, direction and destination sign with the driver before boarding. No departure or arrival time verified."+(i?" Transfer from the previous stop: "+Math.round(leg.transferWalk)+" meters straight-line; safe crossing and connection not verified.":"")+sameNameStopCaution(leg.from)+nearbyDistinctStopCaution(leg.from);
+  item.textContent="POSSIBLE BUS "+(i+1)+": "+leg.trip.route+" from "+leg.from.name+" (stop ID "+leg.from.id+") to "+leg.to.name+" (stop ID "+leg.to.id+"). "+(String(leg.trip.headsign||"").trim()?"Stored destination sign: "+String(leg.trip.headsign).trim()+". ":"Official destination sign not supplied in stored trip. ")+"Confirm the route, direction and destination sign with the driver before boarding. No departure or arrival time verified."+(i?" Transfer from the previous stop: "+Math.round(leg.transferWalk)+" meters straight-line; safe crossing and connection not verified.":"")+(coLocatedDistinctTransfer?" These DISTINCT official stop IDs share mapped coordinates. This is NOT a verified same-platform transfer; confirm the boarding location and crossing with Coast RTA.":"")+sameNameStopCaution(leg.from)+nearbyDistinctStopCaution(leg.from);
   $("planSteps").append(item);
   spokenPreview.push(item.textContent);
  });
@@ -511,7 +513,13 @@ function showPossiblePattern(pattern){
   reviewWalk(pos,pattern.legs[0].from,"TO FIRST POSSIBLE STOP");
   pattern.legs.slice(1).forEach((leg,i)=>{
    const previous=pattern.legs[i].to;
-   if(previous.id!==leg.from.id)reviewWalk(previous,leg.from,"FOR POSSIBLE TRANSFER "+(i+1));
+   if(previous.id!==leg.from.id){
+    if(distance(previous,leg.from)<1){
+     const caution=document.createElement("p");caution.className="hint";
+     caution.textContent="POSSIBLE TRANSFER "+(i+1)+": DIFFERENT official stop IDs "+previous.id+" and "+leg.from.id+" share mapped coordinates. A zero-distance map cannot verify the same platform, boarding side, or safe crossing. Confirm the exact transfer location with Coast RTA.";
+     $("planSteps").append(caution);
+    }else reviewWalk(previous,leg.from,"FOR POSSIBLE TRANSFER "+(i+1));
+   }
   });
   reviewWalk(pattern.legs.at(-1).to,destination,"FROM LAST POSSIBLE STOP");
  }
