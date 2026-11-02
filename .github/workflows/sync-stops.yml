@@ -21,6 +21,8 @@ on:
       - scripts/audit_real_transfer_pairs.py
       - scripts/test_real_transfer_pairs.py
       - scripts/audit_journeys.py
+      - scripts/rider_snapshot_safety.py
+      - scripts/test_rider_snapshot_safety.py
       - scripts/build_network.py
       - scripts/test_network.py
       - scripts/gtfs_accessibility_coverage.py
@@ -58,6 +60,10 @@ jobs:
         run: python -m unittest discover -s scripts -p 'test_trip_transfer_diagnostic.py'
       - name: Test real-feed pair sampling and fail-closed guards (offline)
         run: python -m unittest discover -s scripts -p 'test_real_transfer_pairs.py'
+      - name: Test rider snapshot time/loop safety (offline)
+        run: python -m unittest discover -s scripts -p 'test_rider_snapshot_safety.py'
+      - name: Report rider snapshot time/loop safety (offline)
+        run: python scripts/rider_snapshot_safety.py
       - name: Audit currently published GTFS snapshot (offline; not fresh feed)
         run: python scripts/audit_journeys.py
       - name: Test directed network invariants (offline)
