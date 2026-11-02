@@ -168,10 +168,10 @@ function boot(instant="2026-10-27T11:00:00Z",deferred=null,fixtureJourneys=null,
  };
  class MockAbortController{constructor(){this.listeners=[];this.signal={aborted:false,addEventListener:(name,fn)=>{if(name==="abort")this.listeners.push(fn)}}}abort(){if(this.signal.aborted)return;this.signal.aborted=true;for(const fn of this.listeners)fn()}}
  const ctx={document,window,navigator,fetch,AbortController:MockAbortController,speechSynthesis,SpeechSynthesisUtterance:class{constructor(text){this.text=text}},Date:FixedDate,Intl,console};
- const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys,stopLoadState,scheduleLoadState}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate})",ctx,{timeout:5000});
+ const api=vm.runInNewContext(script+"\n({state:()=>({screen,pos,destination,official,journeys,stopLoadState,scheduleLoadState}),nearbyStopCaution:nearbyDistinctStopCaution,requestedCity:explicitlyRequestedCity,placeMatchesCity:placeMatchesRequestedCity,pickStartCandidate,showPattern:showPossiblePattern})",ctx,{timeout:5000});
  const click=async id=>{assert.equal(typeof get(id).onclick,"function","Missing handler "+id);await get(id).onclick()};
  const settle=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
- return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage")),triggerTimers:()=>{for(const fn of [...timers.values()])fn()},lateGps:()=>delayedGpsSuccess?.({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})};
+ return {get,click,settle,spoken,cancelCount:()=>cancellations,state:api.state,nearbyStopCaution:api.nearbyStopCaution,requestedCity:api.requestedCity,placeMatchesCity:api.placeMatchesCity,pickStartCandidate:api.pickStartCandidate,showPattern:api.showPattern,setInstant:next=>{clockInstant=next},failStopDownload:()=>rejectStopDownload?.(Error("Simulated stop-feed outage")),failJourneyDownload:()=>rejectJourneyDownload?.(Error("Simulated journey-feed outage")),triggerTimers:()=>{for(const fn of [...timers.values()])fn()},lateGps:()=>delayedGpsSuccess?.({coords:{latitude:origin.lat,longitude:origin.lon,accuracy:14}})};
 }
 async function selectAndrews(a){
  await a.click("locate");await a.settle();assert.equal(a.state().screen,"found");
@@ -358,6 +358,37 @@ async function main(){
  assert.ok(staleTopology.get("planSteps").children.some(x=>/External walking-review links are disabled/.test(x.textContent)));
  stops.downloaded_utc=topologySavedStamp;
  console.log("PASS: untimed route-pattern first/final walking review is external, stale-safe, and never enables guided boarding (mocked)");
+ // Untimed previews must not turn distinct co-located stop IDs into a
+ // misleading zero-distance walking map or imply a verified same-platform transfer.
+ const topologyCoLocatedStop=stops.stops.find(s=>s.id==="TL-365");
+ assert.ok(topologyCoLocatedStop,"Co-located topology transfer fixture missing");
+ const topologyOriginalCoordinates={lat:topologyCoLocatedStop.lat,lon:topologyCoLocatedStop.lon};
+ topologyCoLocatedStop.lat=interchange.lat;topologyCoLocatedStop.lon=interchange.lon;
+ try{
+  const coLocatedPattern=boot("2026-10-28T00:41:00Z",null,null,"frequency-unverified");
+  await coLocatedPattern.settle();await selectAndrews(coLocatedPattern);
+  coLocatedPattern.showPattern({legs:[
+   {trip:{route:"QA PATTERN A",headsign:""},from:origin,to:interchange,transferWalk:0},
+   {trip:{route:"QA PATTERN B",headsign:""},from:topologyCoLocatedStop,to:target,transferWalk:0}
+  ],finalWalk:0});
+  assert.match(coLocatedPattern.get("planStatus").textContent,/POSSIBLE ROUTE PATTERN ONLY, NOT A CONFIRMED TRIP/);
+  assert.ok(coLocatedPattern.get("planSteps").children.some(x=>/These DISTINCT official stop IDs share mapped coordinates/.test(x.textContent)),
+   "Untimed route detail must disclose co-located but distinct transfer stops");
+  assert.ok(coLocatedPattern.get("planSteps").children.some(x=>/A zero-distance map cannot verify the same platform/.test(x.textContent)),
+   "Untimed route must explain why a zero-distance map link is omitted");
+  assert.equal(coLocatedPattern.get("planSteps").children.filter(x=>x.tagName==="A"&&/FOR POSSIBLE TRANSFER/.test(x.textContent)).length,0,
+   "Do not offer a zero-distance transfer walking map for distinct stop IDs");
+  assert.equal(coLocatedPattern.get("guideStart").disabled,true,
+   "Co-located untimed transfer must never enable guided boarding");
+  const spokenCoLocated=coLocatedPattern.get("planSteps").children.find(x=>/READ POSSIBLE ROUTE ALOUD/.test(x.textContent));
+  await spokenCoLocated.onclick();
+  assert.match(coLocatedPattern.spoken.at(-1),/These DISTINCT official stop IDs share mapped coordinates/,
+   "Spoken preview must disclose co-located stop uncertainty");
+ }finally{
+  topologyCoLocatedStop.lat=topologyOriginalCoordinates.lat;
+  topologyCoLocatedStop.lon=topologyOriginalCoordinates.lon;
+ }
+ console.log("PASS: untimed co-located distinct-stop transfers warn visibly and audibly without a zero-distance map (mocked)");
  const readPreview=lateFrequency.get("planSteps").children.find(x=>/READ POSSIBLE ROUTE ALOUD/.test(x.textContent));
  assert.ok(readPreview&&!readPreview.disabled,"Untimed route preview must offer accessible speech review when speech synthesis is supported");
  const beforeRead=lateFrequency.spoken.length;
