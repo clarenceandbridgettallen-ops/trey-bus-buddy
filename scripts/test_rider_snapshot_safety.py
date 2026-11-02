@@ -55,5 +55,27 @@ class SnapshotSafetyTests(unittest.TestCase):
         self.assertFalse(result['exact_departures_certified'])
 
 
+    def test_rejects_missing_noninteger_and_descending_stop_sequences(self):
+        journeys = {'trips': [{'stops': [
+            {'stop': 'A', 'seq': 10},
+            {'stop': 'B', 'seq': 5},
+            {'stop': 'A', 'seq': ''},
+            {'stop': 'B', 'seq': '1.5'},
+        ]}]}
+        result = audit_snapshot(self.stops, journeys)
+        self.assertEqual(result['invalid_stop_sequences'], 2)
+        self.assertEqual(result['out_of_order_stop_sequences'], 1)
+        self.assertFalse(result['exact_departures_certified'])
+
+    def test_detects_duplicate_and_blank_stop_inventory_ids(self):
+        stops = {'stops': [{'id': 'A'}, {'id': 'A'}, {'id': ''}, {'id': 'B'}]}
+        journeys = {'trips': [{'stops': [{'stop': '', 'seq': 1}]}]}
+        result = audit_snapshot(stops, journeys)
+        self.assertEqual(result['duplicate_stop_ids'], 1)
+        self.assertEqual(result['blank_stop_ids'], 1)
+        self.assertEqual(result['orphan_stop_references'], 1)
+
+
+
 if __name__ == '__main__':
     unittest.main()
