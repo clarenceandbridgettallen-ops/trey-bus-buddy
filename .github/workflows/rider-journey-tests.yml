@@ -7,6 +7,8 @@ on:
       - data/coast-rta-stops.json
       - data/coast-rta-journeys.json
       - scripts/test_rider_journey.cjs
+      - scripts/rider_snapshot_safety.py
+      - scripts/test_rider_snapshot_safety.py
       - .github/workflows/rider-journey-tests.yml
   pull_request:
     paths:
@@ -14,6 +16,8 @@ on:
       - data/coast-rta-stops.json
       - data/coast-rta-journeys.json
       - scripts/test_rider_journey.cjs
+      - scripts/rider_snapshot_safety.py
+      - scripts/test_rider_snapshot_safety.py
       - .github/workflows/rider-journey-tests.yml
 permissions:
   contents: read
@@ -29,3 +33,7 @@ jobs:
           node -e "const fs=require('node:fs'); const vm=require('node:vm'); const h=fs.readFileSync('index.html','utf8'); const js=h.match(/<script>([\\s\\S]*?)<\\/script>/)?.[1]; if(!js) throw Error('Missing inline script'); new vm.Script(js);"
       - name: Exercise mocked start-to-destination journey
         run: node scripts/test_rider_journey.cjs
+      - name: Verify rider snapshot integrity regressions
+        run: python -m unittest discover -s scripts -p 'test_rider_snapshot_safety.py'
+      - name: Audit stored rider snapshot (not a fresh GTFS feed)
+        run: python scripts/rider_snapshot_safety.py
