@@ -481,6 +481,26 @@ async function main(){
  assert.ok(walkingTransfer.get("planSteps").children.some(x=>/Transfer 1:.*stop ID TL-20.*stop ID TL-365.*NOT verified safe crossings/.test(x.textContent)),
   "Transfer review must identify both mapped stop IDs and warn about crossing/accessibility uncertainty");
  assert.equal(walkingTransfer.get("guideStart").disabled,true,"Unverified inter-stop walking must never authorize spoken boarding");
+ // Different official stop IDs may share coordinates. That is NOT proof of
+ // a zero-walk, same-platform or accessible transfer, even with exact times.
+ const coLocatedStop=stops.stops.find(s=>s.id==="TL-365");
+ assert.ok(coLocatedStop,"Co-located transfer fixture stop missing");
+ const savedCoLocatedPosition={lat:coLocatedStop.lat,lon:coLocatedStop.lon};
+ coLocatedStop.lat=interchange.lat;coLocatedStop.lon=interchange.lon;
+ try{
+  const coLocatedTransfer=boot("2026-10-27T11:00:00Z",null,walkingFixture);
+  await coLocatedTransfer.settle();await selectAndrews(coLocatedTransfer);
+  assert.ok(coLocatedTransfer.get("planSteps").children.some(x=>/These DISTINCT official stop IDs share mapped coordinates/.test(x.textContent)),
+   "Same-coordinate, different-ID transfers must visibly warn about boarding-position uncertainty");
+  assert.equal(coLocatedTransfer.get("planSteps").children.filter(x=>x.tagName==="A"&&/WALKING DIRECTIONS FOR TRANSFER/.test(x.textContent)).length,0,
+   "A zero-distance map link must not masquerade as an accessible transfer");
+  assert.equal(coLocatedTransfer.get("guideStart").disabled,true,
+   "Different stop IDs must block guided boarding even when the coordinates and synthetic times match");
+  assert.match(coLocatedTransfer.get("planStatus").textContent,/Identical mapped coordinates do not verify the same boarding location/);
+ }finally{
+  coLocatedStop.lat=savedCoLocatedPosition.lat;coLocatedStop.lon=savedCoLocatedPosition.lon;
+ }
+ console.log("PASS: distinct co-located stop IDs block guided transfer and disclose boarding uncertainty (mocked)");
  stops.downloaded_utc="2026-10-01T00:00:00Z";
  let transferPrevented=false;
  const transferClickResult=transferLinks[0].onclick({preventDefault(){transferPrevented=true}});
