@@ -852,8 +852,11 @@ async function main(){
  assert.match(nearby.get("walkLink").href,/travelmode=walking/);
  console.log("PASS: nearest official mapped stop shows unverified-walk warning and walking map link");
  // Conway Terminal has many route patterns; a two-pattern preview must not imply exclusivity.
- assert.ok(html.includes("CHECK ALL OFFICIAL COAST RTA ROUTES"));
- assert.ok(html.includes("https://coastrta.com/routes-and-schedules/"));
+ assert.ok(html.includes("CHECK OFFICIAL COAST RTA ROUTES"));
+ assert.ok(html.includes("https://coastrta.com/coast-rta-routes/"));
+ assert.ok(html.includes("CHECK SERVICE CHANGES & AGENCY TRACKER"));
+ assert.ok(html.includes("https://coastrta.com/service-changes/"));
+ assert.ok(html.includes("Bus Buddy has not verified live arrivals, boarding sides, or accessible walking routes."));
  const routeHub=boot();await routeHub.settle();await routeHub.click("locate");await routeHub.settle();await routeHub.click("yesLocation");
  Object.assign(routeHub.state().pos,{lat:interchange.lat,lon:interchange.lon});
  await routeHub.click("goNearest");
