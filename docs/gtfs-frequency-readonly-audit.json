@@ -16,7 +16,7 @@
     "safe_boarding_side_verified": false,
     "status": "read_only_no_boarding_authorization"
   },
-  "checked_utc": "2026-11-03T11:14:50.322316+00:00",
+  "checked_utc": "2026-11-04T11:27:56.819938+00:00",
   "exact_departures_verified": false,
   "frequency_route_diagnostic": {
     "affected_routes": 31,
@@ -373,7 +373,7 @@
     "inactive_rows": 2,
     "invalid_calendar_rows": 0,
     "invalid_exception_rows": 0,
-    "service_date": "20261103",
+    "service_date": "20261104",
     "status": "diagnostic_only_not_departure_times",
     "uncertain_rows": 0,
     "uncertain_service_ids": []
@@ -446,29 +446,88 @@
   "live_arrivals_verified": false,
   "official_feed_url": "https://coastrta.transloc.com/Secure/Admin/Reports/GTFSDownload.aspx",
   "official_stop_record_integrity": {
-    "distinct_nonempty_ids": 525,
+    "distinct_nonempty_ids": 522,
     "duplicate_id_count": 0,
     "duplicate_ids": [],
     "missing_id_rows": 0,
-    "raw_rows": 525,
+    "raw_rows": 522,
     "unusable_coordinate_examples": [],
     "unusable_coordinate_rows": 0
   },
-  "official_stop_rows": 525,
+  "official_stop_rows": 522,
   "published_rider_snapshot_updated": false,
   "status": "blocked_frequency_import_read_only",
   "stop_route_membership_comparison": {
     "live_arrivals_verified": false,
-    "official_only_membership_count": 0,
-    "official_only_membership_examples": [],
+    "official_only_membership_count": 6,
+    "official_only_membership_examples": [
+      {
+        "route": "Rt 7 Myrtle Beach / Conway",
+        "stop_id": "TL-1264"
+      },
+      {
+        "route": "Rt 7A 6:40 AM Conway/Myrtle Beach",
+        "stop_id": "TL-1264"
+      },
+      {
+        "route": "Rt 7H 7PM & 8PM Myrtle Beach/Conway",
+        "stop_id": "TL-1264"
+      },
+      {
+        "route": "Rt 7H Conway/Myrtle Beach via Oak Tree Farms",
+        "stop_id": "TL-1264"
+      },
+      {
+        "route": "Rt 7 Myrtle Beach / Conway",
+        "stop_id": "TL-1265"
+      },
+      {
+        "route": "Rt7H 6 PM Myrtle Beach/Oak Tree Farms",
+        "stop_id": "TL-1265"
+      }
+    ],
     "official_route_stop_memberships": 962,
-    "official_stop_ids": 525,
-    "official_stop_ids_missing_from_snapshot": [],
+    "official_stop_ids": 522,
+    "official_stop_ids_missing_from_snapshot": [
+      "TL-1264",
+      "TL-1265"
+    ],
     "safe_walking_routes_verified": false,
-    "snapshot_stop_ids_missing_from_official": [],
+    "snapshot_stop_ids_missing_from_official": [
+      "TL-1027",
+      "TL-1143",
+      "TL-1144",
+      "TL-1148",
+      "TL-1149"
+    ],
     "status": "read_only_official_gtfs_vs_stored_route_memberships",
-    "stored_only_membership_count": 0,
-    "stored_only_membership_examples": [],
+    "stored_only_membership_count": 6,
+    "stored_only_membership_examples": [
+      {
+        "route": "Rt 7H 7PM & 8PM Myrtle Beach/Conway",
+        "stop_id": "TL-1027"
+      },
+      {
+        "route": "Rt7H 6 PM Myrtle Beach/Oak Tree Farms",
+        "stop_id": "TL-1027"
+      },
+      {
+        "route": "Rt 7 Myrtle Beach / Conway",
+        "stop_id": "TL-1143"
+      },
+      {
+        "route": "Rt 7A 6:40 AM Conway/Myrtle Beach",
+        "stop_id": "TL-1144"
+      },
+      {
+        "route": "Rt 7H Conway/Myrtle Beach via Oak Tree Farms",
+        "stop_id": "TL-1148"
+      },
+      {
+        "route": "Rt 7 Myrtle Beach / Conway",
+        "stop_id": "TL-1149"
+      }
+    ],
     "stored_route_stop_memberships": 962,
     "stored_stop_ids": 525,
     "unknown_route_references": 0,
@@ -482,11 +541,20 @@
     "coordinate_changes_over_10m_count": 0,
     "name_changes": [],
     "name_changes_count": 0,
-    "new_in_official_feed_count": 0,
-    "new_in_official_feed_ids": [],
-    "not_in_official_feed_count": 0,
-    "not_in_official_feed_ids": [],
-    "official_valid_stop_ids": 525,
+    "new_in_official_feed_count": 2,
+    "new_in_official_feed_ids": [
+      "TL-1264",
+      "TL-1265"
+    ],
+    "not_in_official_feed_count": 5,
+    "not_in_official_feed_ids": [
+      "TL-1027",
+      "TL-1143",
+      "TL-1144",
+      "TL-1148",
+      "TL-1149"
+    ],
+    "official_valid_stop_ids": 522,
     "stored_valid_stop_ids": 525
   }
 }
