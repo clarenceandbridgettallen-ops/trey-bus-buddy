@@ -40,8 +40,8 @@ footer button{background:#fff}
 @media (hover:hover){button:hover:not(:disabled),a.big:hover{background:#eef8fe}button.primary:hover:not(:disabled),a.primary:hover{background:#064d7d}}
 @media (prefers-reduced-motion:reduce){.screen.active{animation:none}button,a.big{transition:none}}
 @media (max-width:360px){.screen{padding:20px 13px}header strong{font-size:21px}button,a.big{font-size:19px}}
-/* Keep technical GTFS diagnostics out of the rider welcome layout. Existing safety notes on trip screens remain. */
-#dataStatus{position:absolute!important;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+/* Keep the route-data age and no-live-arrivals warning visible to riders. */
+#dataStatus{position:static!important;width:auto;height:auto;margin:2px 8px 10px;padding:8px 10px;overflow:visible;clip:auto;white-space:normal;background:#fff4d6;border:1px solid #886218;border-radius:10px;color:#30220c;font-weight:650}
 
 /* v39: accessible journey timeline; original trip logic and safety gate retained */
 #planSteps{display:flex;flex-direction:column;gap:12px;width:100%}
