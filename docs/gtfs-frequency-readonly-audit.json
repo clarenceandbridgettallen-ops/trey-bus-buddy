@@ -16,7 +16,7 @@
     "safe_boarding_side_verified": false,
     "status": "read_only_no_boarding_authorization"
   },
-  "checked_utc": "2026-11-12T11:20:57.516681+00:00",
+  "checked_utc": "2026-11-13T17:52:19.625159+00:00",
   "exact_departures_verified": false,
   "frequency_route_diagnostic": {
     "affected_routes": 31,
@@ -373,7 +373,7 @@
     "inactive_rows": 2,
     "invalid_calendar_rows": 0,
     "invalid_exception_rows": 0,
-    "service_date": "20261112",
+    "service_date": "20261113",
     "status": "diagnostic_only_not_departure_times",
     "uncertain_rows": 0,
     "uncertain_service_ids": []
