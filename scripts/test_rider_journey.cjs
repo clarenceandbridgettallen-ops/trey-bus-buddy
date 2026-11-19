@@ -6,7 +6,7 @@ const html=fs.readFileSync(path.join(root,"index.html"),"utf8");
 // Critical route-data and timetable warnings must remain in the accessibility tree.
 // Hiding a role=status region with display:none suppresses screen-reader announcements.
 assert.match(html, /id="dataStatus"[^>]*role="status"[^>]*aria-live="polite"/);
-assert.ok(html.includes("#dataStatus{position:absolute!important;"),"Data status must be visually hidden, not removed from accessibility tree");
+assert.ok(html.includes("#dataStatus{position:static!important;"),"Data safety status must remain visibly readable to riders");
 assert.ok(!html.includes("#dataStatus{display:none!important}"),"Do not hide safety status from screen readers");
 console.log("PASS: Coast RTA data/frequency warnings remain available to screen readers (source-level)");
 // GPS reverse lookup and typed destination errors must be announced when their
